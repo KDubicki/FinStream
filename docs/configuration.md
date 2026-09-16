@@ -23,19 +23,25 @@ All configuration comes from environment variables (GR-4). Locally they're loade
 
 | Variable | Required | Default | Description / validation |
 |---|---|---|---|
-| `YAHOO_SYMBOLS` | no | `GC=F,GLD,IAU,SPY,QQQ,VOO,^GSPC,^IXIC,^DJI` | Comma-separated Yahoo symbols. Whitespace is trimmed, duplicates removed, must not be empty |
+| `YAHOO_SYMBOLS` | no | see the table below | Comma-separated Yahoo symbols. Whitespace is trimmed, duplicates removed, must not be empty. More symbols means more calls per cycle, so trim the list if Yahoo starts rate limiting |
 
-Default symbol set:
+Default symbol set (every symbol verified against Yahoo on 2026-09-17, plan 0004):
 
-| Symbol | Instrument | Asset class |
-|---|---|---|
-| `GC=F` | COMEX gold futures (front month) | Gold |
-| `GLD`, `IAU` | Gold ETFs | Gold / ETF |
-| `SPY`, `VOO` | S&P 500 ETFs | ETF |
-| `QQQ` | Nasdaq-100 ETF | ETF |
-| `^GSPC` | S&P 500 index | Index |
-| `^IXIC` | Nasdaq Composite index | Index |
-| `^DJI` | Dow Jones Industrial Average | Index |
+| Class | Symbols |
+|---|---|
+| Metals | `GC=F` gold futures, `SI=F` silver futures, `GLD` gold ETF, `SLV` silver ETF |
+| Energy | `CL=F` WTI crude, `NG=F` natural gas |
+| Indices | `^GSPC` S&P 500, `^IXIC` Nasdaq Composite, `^DJI` Dow Jones, `^RUT` Russell 2000, `^VIX` volatility index, `^FTSE` FTSE 100, `^STOXX50E` Euro Stoxx 50 |
+| ETFs | `SPY` S&P 500, `QQQ` Nasdaq 100, `IWM` Russell 2000, `TLT` 20+ year Treasuries |
+| FX | `EURUSD=X`, `USDPLN=X`, `DX-Y.NYB` dollar index |
+| Crypto | `BTC-USD`, `ETH-USD` |
+| Rates | `^TNX` US 10-year Treasury yield |
+
+`^WIG20` is **not** included: Yahoo reports it delisted and it returns no prices. `WIG20.WA` does
+work and can be added to `YAHOO_SYMBOLS` if you want the Warsaw index.
+
+Several indices (`^GDAXI`, `^FCHI`, `^N225`, `^HSI`) return a NaN close for the most recent
+intraday bar; they are stored faithfully and the dashboard falls back to the last valid close.
 
 ## Schedules
 

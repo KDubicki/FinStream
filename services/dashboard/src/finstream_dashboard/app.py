@@ -1,7 +1,7 @@
 """The Streamlit page.
 
-UI only: every SQL statement lives in `queries.py`. Results are cached with a TTL so moving a
-widget does not re-query the database on every rerun.
+UI only: SQL lives in `queries.py`, chart construction in `charts.py`, and display names in
+`instruments.py`. Results are cached with a TTL so moving a widget does not re-query the database.
 
 Run locally:  streamlit run src/finstream_dashboard/app.py
 """
@@ -9,13 +9,13 @@ Run locally:  streamlit run src/finstream_dashboard/app.py
 from __future__ import annotations
 
 import os
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 
 import pandas as pd
 import streamlit as st
 from sqlalchemy.engine import Engine
 
-from finstream_dashboard import queries
+from finstream_dashboard import charts, instruments, queries
 from finstream_dashboard.config import Settings
 
 #: Streamlit needs the cache TTL at decoration time. Reading the environment directly keeps
@@ -74,8 +74,16 @@ def load_run_status_counts() -> pd.DataFrame:
     return queries.run_status_counts(get_engine())
 
 
+def series_span(coverage: pd.DataFrame, symbol: str, bar_interval: str) -> tuple[object, object]:
+    """First and last timestamp stored for one series, so the date range can follow the data."""
+    row = coverage[(coverage["symbol"] == symbol) & (coverage["bar_interval"] == bar_interval)]
+    if row.empty:
+        return None, None
+    return row.iloc[0]["first_ts"], row.iloc[0]["last_ts"]
+
+
 def render_prices(coverage: pd.DataFrame, settings: Settings) -> None:
-    symbols = sorted(coverage["symbol"].unique())
+    symbols = instruments.ordered_symbols(coverage["symbol"].unique())
     intervals = sorted(coverage["bar_interval"].unique())
     default_interval = (
         intervals.index(settings.dashboard_default_interval)
@@ -83,14 +91,21 @@ def render_prices(coverage: pd.DataFrame, settings: Settings) -> None:
         else 0
     )
 
-    left, middle, right = st.columns([2, 1, 2])
-    symbol = left.selectbox("Symbol", symbols)
+    left, middle = st.columns([3, 1])
+    symbol = left.selectbox(
+        "Instrument",
+        symbols,
+        format_func=lambda s: f"{instruments.describe(s).asset_class} — {instruments.label(s)}",
+    )
     bar_interval = middle.selectbox("Interval", intervals, index=default_interval)
-    today = datetime.now(UTC).date()
-    selected = right.date_input(
+
+    first_ts, last_ts = series_span(coverage, symbol, bar_interval)
+    window_start, window_end = charts.default_date_range(first_ts, last_ts)
+    selected = st.date_input(
         "Date range",
-        value=(today - timedelta(days=90), today),
-        max_value=today,
+        value=(window_start, window_end),
+        min_value=charts.as_date(first_ts),
+        max_value=window_end,
     )
     if not isinstance(selected, tuple | list) or len(selected) != 2:
         st.info("Pick an end date to show the range.")
@@ -101,7 +116,7 @@ def render_prices(coverage: pd.DataFrame, settings: Settings) -> None:
         symbol, bar_interval, start, end + timedelta(days=1), settings.dashboard_max_rows
     )
     if prices.empty:
-        st.info(f"No {bar_interval} bars for {symbol} in this range.")
+        st.info(f"No {bar_interval} bars for {instruments.label(symbol)} in this range.")
         return
 
     if len(prices) >= settings.dashboard_max_rows:
@@ -110,32 +125,41 @@ def render_prices(coverage: pd.DataFrame, settings: Settings) -> None:
             "narrow the date range to see the rest."
         )
 
-    indexed = prices.set_index("ts")
-    st.line_chart(indexed[["close", "adj_close"]], height=320)
-    st.bar_chart(indexed["volume"], height=180)
+    instrument = instruments.describe(symbol)
+    last_close = charts.last_valid(prices["close"])
+    first_close = charts.last_valid(prices["close"].iloc[::-1])
+    change = (last_close - first_close) if last_close is not None and first_close else None
 
-    latest = prices.iloc[-1]
-    first_close = prices.iloc[0]["close"]
-    change = (latest["close"] - first_close) if pd.notna(latest["close"]) else None
     metrics = st.columns(4)
-    metrics[0].metric(
-        "Last close", f"{latest['close']:.2f}" if pd.notna(latest["close"]) else "n/a"
-    )
+    metrics[0].metric("Last close", f"{last_close:,.2f}" if last_close is not None else "n/a")
     metrics[1].metric(
         "Change over range",
-        f"{change:+.2f}" if change is not None else "n/a",
-        f"{(change / first_close * 100):+.2f}%" if change is not None and first_close else None,
+        f"{change:+,.2f}" if change is not None else "n/a",
+        f"{(change / first_close * 100):+.2f}%" if change and first_close else None,
     )
-    metrics[2].metric("Bars shown", len(prices))
-    metrics[3].metric("Last bar (UTC)", str(latest["ts"]))
+    metrics[2].metric("Bars shown", f"{len(prices):,}")
+    metrics[3].metric(
+        "Last bar (UTC)",
+        pd.Timestamp(prices["ts"].iloc[-1]).strftime("%Y-%m-%d %H:%M"),
+    )
+
+    st.altair_chart(
+        charts.price_chart(prices, title=f"{instrument.name} ({symbol}) · {bar_interval}"),
+        use_container_width=True,
+    )
+    st.caption("Volume")
+    st.altair_chart(charts.volume_chart(prices), use_container_width=True)
 
     with st.expander("Most recent bars"):
         st.dataframe(load_latest_bars(symbol, bar_interval), width="stretch")
 
 
 def render_coverage(coverage: pd.DataFrame) -> None:
-    st.caption("What the database holds. Gaps between `last_ts` and now mean ingestion is behind.")
-    st.dataframe(coverage, width="stretch")
+    st.caption("What the database holds. A `last_ts` far behind now means ingestion is behind.")
+    table = coverage.copy()
+    table.insert(0, "instrument", [instruments.describe(s).name for s in table["symbol"]])
+    table.insert(1, "class", [instruments.describe(s).asset_class for s in table["symbol"]])
+    st.dataframe(table, width="stretch")
 
 
 def render_health() -> None:

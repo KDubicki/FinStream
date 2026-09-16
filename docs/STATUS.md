@@ -1,10 +1,10 @@
 # Project status
 
-**Updated:** 2026-09-17 (M2 done) · **Branch:** `main` (work lands here; the plan 0001 branch was merged and deleted)
+**Updated:** 2026-09-17 · **Branch:** `main` (work lands here)
 
 ## In one sentence
 
-The rules, documentation and the approved plan are in place; the Ingestor service has been started — configuration and logging are done and tested, the database, Yahoo source, scheduler and Docker are not written yet.
+The platform runs end to end: the Ingestor collects 23 instruments from Yahoo on a schedule into TimescaleDB, and a read-only Streamlit dashboard shows them. Only the final review (plan 0001 M6) is left.
 
 ## What already works
 
@@ -20,7 +20,8 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 | Service: database layer (schema, idempotent upsert, run records) | Done |
 | Service: Yahoo source (fetch, classify, retry) | Done |
 | Service: jobs, scheduler, entrypoint, healthcheck | Done. 107 tests, 95.95% coverage |
-| Dashboard (Streamlit, read-only) | Done (plan 0003). Running locally and showing live data |
+| Dashboard (Streamlit, read-only) | Done (plans 0003, 0004). Named instruments grouped by asset class, charts that follow the data |
+| Instrument coverage | 23 symbols across metals, energy, indices, ETFs, FX, crypto and rates. 50 series stored, all runs successful |
 
 ## What doesn't exist yet
 

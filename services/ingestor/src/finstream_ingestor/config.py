@@ -42,7 +42,15 @@ class Settings(BaseSettings):
     # --- Source ---
     # Kept as a raw string: pydantic-settings parses list-typed fields as JSON, which would
     # reject a comma-separated value. Use Settings.symbols for the parsed tuple.
-    yahoo_symbols: str = "GC=F,GLD,IAU,SPY,QQQ,VOO,^GSPC,^IXIC,^DJI"
+    yahoo_symbols: str = (
+        "GC=F,SI=F,GLD,SLV,"  # metals
+        "CL=F,NG=F,"  # energy
+        "^GSPC,^IXIC,^DJI,^RUT,^VIX,^FTSE,^STOXX50E,"  # indices
+        "SPY,QQQ,IWM,TLT,"  # ETFs
+        "EURUSD=X,USDPLN=X,DX-Y.NYB,"  # FX
+        "BTC-USD,ETH-USD,"  # crypto
+        "^TNX"  # rates
+    )
 
     # --- Schedules ---
     scheduler_timezone: str = "UTC"
