@@ -1,6 +1,6 @@
 # Plan 0001: FinStream Ingestor implementation
 
-- **Status:** Draft <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
+- **Status:** Approved <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
 - **Created:** 2026-09-15
 - **Branch:** feat/0001-ingestor
 - **Related:** [ADR-0001](../adr/0001-ingestor-is-extract-load-only.md), [ADR-0002](../adr/0002-postgresql-timescaledb-raw-storage.md), [ADR-0003](../adr/0003-apscheduler-and-tenacity.md), [architecture](../architecture.md), [data model](../data-model.md), [configuration](../configuration.md)
