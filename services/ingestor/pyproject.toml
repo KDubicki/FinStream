@@ -2,7 +2,8 @@
 # and the package is run from src/ via PYTHONPATH rather than being installed.
 
 [tool.ruff]
-target-version = "py312"
+# 3.11 is the support floor: linting against it prevents 3.12-only rewrites (e.g. PEP 695).
+target-version = "py311"
 line-length = 100
 src = ["src", "tests"]
 
@@ -13,7 +14,7 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "PTH", "RET", "A
 "tests/*" = ["ARG001", "ARG002"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.11"  # type-check against the oldest supported version
 strict = true
 warn_unreachable = true
 mypy_path = "src"

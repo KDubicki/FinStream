@@ -270,10 +270,11 @@ Each milestone is one Conventional Commit (code, tests and doc/plan updates toge
   - [x] Verify pandas 3.0.5 works with yfinance 1.7.0; if not, fall back to `pandas==2.*` and update the R4 note — **verified, no fallback needed**
   - [x] root `.env.example`; mypy `additional_dependencies` in `.pre-commit-config.yaml`
   - [x] Tests: config fail-fast, defaults, symbol list parsing, cron validation, JSON log shape
-- [ ] **M2: Schema and upsert.** Commit: `feat(ingestor): add raw schema and idempotent upsert`
-  - [ ] `schema.py`, `db.py` (`create_engine`, `wait_for_db`, `init_schema`, `upsert_bars`, `start_run`, `finish_run`)
-  - [ ] Session-scoped container fixture: `PostgresContainer("timescale/timescaledb:2.30.0-pg16", driver="psycopg")` imported from `testcontainers.community.postgres` (the old `testcontainers.postgres` path warns it is deprecated)
-  - [ ] Integration tests: schema re-entrancy + hypertable exists; idempotency; revision (`updated_at` bumped only on change); plain-PostgreSQL mode; run lifecycle
+- [x] **M2: Schema and upsert.** Commit: `feat(ingestor): add raw schema and idempotent upsert`
+  - [x] `schema.py`, `db.py` (`create_engine`, `wait_for_db`, `init_schema`, `upsert_bars`, `start_run`, `finish_run`)
+  - [x] Session-scoped container fixture: `PostgresContainer("timescale/timescaledb:2.30.0-pg16", driver="psycopg")` imported from `testcontainers.community.postgres` (the old `testcontainers.postgres` path warns it is deprecated)
+  - [x] Integration tests: schema re-entrancy + hypertable exists; idempotency; revision (`updated_at` bumped only on change); plain-PostgreSQL mode; run lifecycle
+  - [x] `sources/base.py`: the `PriceBar` dataclass (the upsert needs a row type; the `PriceSource` protocol and error types still arrive in M3)
 - [ ] **M3: Yahoo source.** Commit: `feat(ingestor): add yahoo finance source with retries`
   - [ ] `sources/base.py`, `sources/yahoo.py`
   - [ ] Unit tests with mocked yfinance: normalisation / EL boundary, error classification, retry count, no retry on permanent errors, empty frame
@@ -354,6 +355,21 @@ Run from `services/ingestor` in `.venv` (Python 3.12.13).
 - `pytest -m "not integration" -q --cov=finstream_ingestor --cov-fail-under=85` → PASS: `33 passed`, coverage **100%** on `src/`.
 - `.env.example` ↔ `docs/configuration.md` parity → PASS: 23 variables, none undocumented, none missing.
 - Integration tests → **NOT RUN**: the Docker daemon is not reachable on this machine. M2 needs Docker Desktop started.
+
+### 2026-09-17 · M2 schema, upsert and run records
+
+Local (Python 3.12.13 venv, run from `services/ingestor`):
+
+- `ruff check .` → PASS, after fixing a root cause it exposed: ruff's `target-version` was `py312`, so it proposed PEP 695 generics (`def _run[T]`) which are a **syntax error on Python 3.11**. ruff now targets `py311` and mypy type-checks against 3.11, matching the support floor CI tests.
+- `ruff format --check .` → PASS: `16 files already formatted`.
+- `mypy src` → PASS: `Success: no issues found in 7 source files`.
+- `pytest -m "not integration" -q` → PASS: `42 passed, 16 deselected`.
+- `python3.11 -m compileall src tests` → PASS: every module parses on the oldest supported version.
+- `pytest -m integration --collect-only` → 16 integration tests collected.
+- Unit-only coverage is 78%: `db.py` is covered by the integration tests, so the 85% gate is evaluated by CI over the whole suite.
+- **`pre-commit run mypy --all-files` initially FAILED** where the venv's mypy passed: the hook runs mypy in an isolated environment and `tenacity` was missing from its `additional_dependencies`, which also degraded a return type to `Any`. Adding `tenacity==9.1.4` fixed both errors. Lesson recorded: verifying a hook means running the hook, not the equivalent local command.
+
+- **Integration tests → NOT RUN locally:** the Docker daemon is still unreachable here. They run in CI's `integration` job against the pinned `timescale/timescaledb:2.30.0-pg16` image; the result is recorded below.
 
 ## Change log
 

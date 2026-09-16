@@ -41,11 +41,15 @@ repos:
       - id: mypy
         files: ^services/ingestor/src/
         args: [--config-file=services/ingestor/pyproject.toml]
+        # The hook runs mypy in an isolated environment, so every typed runtime dependency the
+        # sources import must be listed here; otherwise mypy reports import-not-found and
+        # degrades those types to Any.
         additional_dependencies:
           - pydantic==2.13.5
           - pydantic-settings==2.15.0
           - SQLAlchemy==2.0.54
           - pandas-stubs==3.0.5.260914
+          - tenacity==9.1.4
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1

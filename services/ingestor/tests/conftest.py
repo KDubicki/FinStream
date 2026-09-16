@@ -26,11 +26,15 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     real_connect = socket.socket.connect
 
     def guarded(self: socket.socket, address: Any) -> Any:
-        host = address[0] if isinstance(address, tuple) else address
-        if isinstance(host, str) and host not in LOCAL_HOSTS:
-            raise AssertionError(
-                f"network access to {host!r} is forbidden in tests (GR-7); mock the source instead"
-            )
+        # Only TCP addresses are checked. A plain string is an AF_UNIX path, such as the Docker
+        # socket testcontainers talks to, and must stay allowed.
+        if isinstance(address, tuple):
+            host = address[0]
+            if isinstance(host, str) and host not in LOCAL_HOSTS:
+                raise AssertionError(
+                    f"network access to {host!r} is forbidden in tests (GR-7);"
+                    " mock the source instead"
+                )
         return real_connect(self, address)
 
     monkeypatch.setattr(socket.socket, "connect", guarded)
