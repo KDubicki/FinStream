@@ -1,5 +1,7 @@
 # FinStream
 
+[![CI](https://github.com/KDubicki/FinStream/actions/workflows/ci.yml/badge.svg)](https://github.com/KDubicki/FinStream/actions/workflows/ci.yml)
+
 FinStream is a modular data platform for financial market data: gold, ETFs and stock indices. It's built as a set of small, single-purpose microservices around a PostgreSQL + TimescaleDB time-series database.
 
 > **Status:** plan 0001 is in progress — research and the service scaffold (config + logging) are done; the database, source, scheduler and Docker are still to come.
@@ -65,7 +67,7 @@ pre-commit run --all-files
 
 ## How we work
 
-Every change follows **Research → Plan → Implement → Test → Review & Document**. Plans are approved before any code is written. Twelve numbered golden rules apply, and a change isn't done until it meets the Definition of Done. Claude Code hooks and pre-commit enforce the rules, so they aren't only documented.
+Every change follows **Research → Plan → Implement → Test → Review & Document**. Plans are approved before any code is written. Twelve numbered golden rules apply, and a change isn't done until it meets the Definition of Done. Claude Code hooks and pre-commit enforce the rules locally, and CI re-runs the same gates on every push, so they aren't only documented.
 
 - [AGENTS.md](AGENTS.md): the rulebook
 - [docs/methodology.md](docs/methodology.md): full workflow and the rationale behind each rule

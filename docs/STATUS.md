@@ -1,6 +1,6 @@
 # Project status
 
-**Updated:** 2026-09-16 · **Branch:** `feat/0001-ingestor` · **Last commit:** `2553f08 feat(ingestor): scaffold service with config and logging`
+**Updated:** 2026-09-17 · **Branch:** `main` (work lands here; the plan 0001 branch was merged and deleted)
 
 ## In one sentence
 
@@ -13,6 +13,7 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 | Rulebook (`AGENTS.md`), methodology, ADRs | Done. 12 golden rules, 4 ADRs, phase workflow |
 | Agent skills (research / development / test) | Done, shared by every agent tool |
 | Rule enforcement (Claude Code hooks + pre-commit) | Done and tested: 60 hook cases pass, pre-commit is green |
+| CI (GitHub Actions) | Added (plan 0002): lint, types, tests, secret scan, weekly audit. First run pending |
 | Documentation (architecture, data model, configuration) | Done, as a design spec |
 | Plan 0001 + research notes R1–R4 | Done. Every open technical question is answered |
 | Service: config + logging | Done. 33 tests, 100% coverage on `src/` |

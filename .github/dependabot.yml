@@ -1,0 +1,46 @@
+# Automated dependency updates (AGENTS.md GR-8).
+# Dependabot only proposes: a human still pins exactly and justifies the change in a research note.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Warsaw
+    commit-message:
+      prefix: ci
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: "/services/ingestor"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Warsaw
+    commit-message:
+      prefix: build
+    open-pull-requests-limit: 5
+    groups:
+      python-runtime:
+        patterns: ["*"]
+        exclude-patterns: ["pytest*", "ruff", "mypy", "pandas-stubs", "testcontainers*"]
+      python-dev:
+        patterns: ["pytest*", "ruff", "mypy", "pandas-stubs", "testcontainers*"]
+
+  - package-ecosystem: docker
+    directory: "/services/ingestor"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Warsaw
+    commit-message:
+      prefix: build
+    open-pull-requests-limit: 3

@@ -1,0 +1,190 @@
+# The same gates developers run locally (AGENTS.md §5), re-run on a clean machine.
+# Third-party actions are pinned to a commit SHA; the trailing comment records the tag.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SERVICE_DIR: services/ingestor
+  DEFAULT_PYTHON: "3.12"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  quality:
+    name: Lint, types and secrets (pre-commit)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            services/ingestor/requirements.txt
+            services/ingestor/requirements-dev.txt
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: pre-commit-${{ runner.os }}-
+
+      - name: Install pre-commit
+        run: pip install pre-commit==4.6.2
+
+      # Runs ruff, ruff-format, mypy, gitleaks and the hygiene hooks: one source of truth
+      # shared with developers' machines.
+      - name: Run all hooks
+        run: pre-commit run --all-files --show-diff-on-failure
+
+  commit-messages:
+    name: Conventional Commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The local commit-msg hook is missing on a fresh clone, so GR-12 is verified here too.
+      - name: Check every commit subject in this pull request
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY'
+          import os, re, subprocess, sys
+
+          PATTERN = re.compile(
+              r"^(feat|fix|docs|test|refactor|perf|style|build|ci|chore|revert)"
+              r"(\([a-z0-9._/-]+\))?!?: .+"
+          )
+          rng = f"{os.environ['BASE_SHA']}..{os.environ['HEAD_SHA']}"
+          subjects = subprocess.run(
+              ["git", "log", "--no-merges", "--format=%s", rng],
+              capture_output=True, text=True, check=True,
+          ).stdout.splitlines()
+
+          bad = [s for s in subjects if not PATTERN.match(s)]
+          for subject in subjects:
+              print(("  ok  " if subject not in bad else "  BAD ") + subject)
+          if bad:
+              print("\nConventional Commits required (AGENTS.md GR-12), e.g. 'feat(ingestor): add upsert'.")
+              sys.exit(1)
+          print(f"\n{len(subjects)} commit subject(s) OK")
+          PY
+
+  test:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.12 is the target; 3.11 keeps the compatibility the development skill promises.
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            services/ingestor/requirements.txt
+            services/ingestor/requirements-dev.txt
+
+      - name: Install dependencies
+        working-directory: ${{ env.SERVICE_DIR }}
+        run: pip install -r requirements-dev.txt
+
+      - name: Run unit tests
+        working-directory: ${{ env.SERVICE_DIR }}
+        run: pytest -m "not integration" -q
+
+  integration:
+    name: Integration tests and coverage gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            services/ingestor/requirements.txt
+            services/ingestor/requirements-dev.txt
+
+      - name: Install dependencies
+        working-directory: ${{ env.SERVICE_DIR }}
+        run: pip install -r requirements-dev.txt
+
+      # GitHub's Ubuntu runners ship a Docker daemon, which testcontainers needs to start
+      # the pinned TimescaleDB image (GR-7: no mocked database).
+      - name: Show Docker version
+        run: docker version
+
+      - name: Run the full suite with the coverage gate
+        working-directory: ${{ env.SERVICE_DIR }}
+        run: |
+          pytest --cov=finstream_ingestor --cov-report=term-missing \
+                 --cov-report=xml --cov-fail-under=85
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-xml
+          path: ${{ env.SERVICE_DIR }}/coverage.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+  docker-build:
+    name: Build the ingestor image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # hashFiles() is empty before checkout, so the guard lives here rather than in job-level `if`.
+      # The Dockerfile arrives with plan 0001 M5; until then this job is a no-op.
+      - name: Is there a Dockerfile yet?
+        id: probe
+        run: |
+          if [ -f "$SERVICE_DIR/Dockerfile" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No $SERVICE_DIR/Dockerfile yet (plan 0001 M5); skipping the build." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Build image
+        if: steps.probe.outputs.exists == 'true'
+        working-directory: ${{ env.SERVICE_DIR }}
+        run: docker build --tag finstream-ingestor:ci .

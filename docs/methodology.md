@@ -100,7 +100,7 @@ Indexes of ADRs and plans are kept in [docs/README.md](README.md).
   - Breaking changes: `!` or a `BREAKING CHANGE:` footer.
 - **Commit at meaningful units.** A commit is one complete, verified slice, typically a milestone, together with its tests and doc/plan updates. Don't let work pile up uncommitted, don't commit red or unverified work, and don't spend a commit on a trivial edit such as a status bump.
 - **Stage only the slice's files.** Never use `git add -A` blindly.
-- **Branches:** one per plan (`feat/NNNN-<slug>`). The initial repository bootstrap is the only work committed directly to `main`.
+- **Branches:** work lands on `main` by default in this single-maintainer repository. Use `feat/NNNN-<slug>` when a change should be reviewed or proved by CI before landing. Pushed history is never rewritten.
 
 ## 8. Enforcement layers
 
@@ -110,7 +110,7 @@ Indexes of ADRs and plans are kept in [docs/README.md](README.md).
 | Skills (`.agents/skills/`) | Agents that support skills | Procedural drift: skipped steps, missing tests, undocumented changes | Guidance, not a hard check |
 | Claude Code hooks (`.claude/`) | Claude Code sessions | `.env`/key access, Accepted-ADR edits, hook bypass, force-push, destructive git/docker/rm; ruff on every edited `.py`; rule reminder on session start | Heuristic command inspection; defence in depth, not a sandbox |
 | pre-commit (`.pre-commit-config.yaml`) | Every commit from any tool or human (once installed) | Formatting, lint, types, secrets (gitleaks, private keys, `.env`), broken symlinks, non-conventional commit messages | Local only; can be skipped by someone deliberately bypassing it, which GR-12 forbids |
-| CI *(follow-up)* | Every push/PR | Same gates on a clean machine | Not set up yet (see plan 0001 Follow-ups) |
+| CI (`.github/workflows/`) | Every push to `main` and every pull request | The same gates on a clean machine: pre-commit (ruff, mypy, gitleaks), unit tests on Python 3.11 and 3.12, TimescaleDB integration tests, the coverage gate, Conventional Commit subjects, and the image build once a Dockerfile exists. A weekly workflow runs `pip-audit` and a full-history secret scan | Cannot catch what no gate encodes; a red run still needs someone to read it ([plan 0002](plans/0002-ci-pipeline.md)) |
 
 **Installing the local layers:**
 

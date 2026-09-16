@@ -321,7 +321,7 @@ None.
 ## Follow-ups
 
 - Plan 0002: additional free sources (e.g. Alpha Vantage, Twelve Data, FRED) through `PriceSource`.
-- CI (GitHub Actions): pre-commit, unit + integration tests, image build.
+- ~~CI (GitHub Actions): pre-commit, unit + integration tests, image build.~~ Covered by [plan 0002](0002-ci-pipeline.md).
 - Alembic once a non-additive schema change is needed.
 - Metrics endpoint (Prometheus) and alerting on consecutive failed runs.
 - TimescaleDB compression and retention policies.
