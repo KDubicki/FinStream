@@ -34,6 +34,11 @@ HEARTBEAT_JOB_ID = "heartbeat"
 #: Backfill and the daily job both work on daily bars.
 DAILY_INTERVAL = "1d"
 
+#: Jobs that also run once at startup. ADR-0003 relies on this: the in-memory job store
+#: forgets the schedule on restart, and an immediate run plus overlapping lookbacks is what
+#: heals the gap (GR-2 makes the repeat harmless).
+RUN_AT_STARTUP = (INTRADAY_JOB_ID, DAILY_JOB_ID, HEARTBEAT_JOB_ID)
+
 
 def job_defaults(settings: Settings) -> dict[str, object]:
     """Defaults every job inherits.
@@ -111,6 +116,7 @@ def build_scheduler(
             CronTrigger.from_crontab(settings.daily_cron, timezone=settings.scheduler_timezone),
             id=DAILY_JOB_ID,
             name="daily bars after the close",
+            next_run_time=now,  # catch up immediately rather than waiting for the next close
         )
 
     if settings.backfill_on_start:

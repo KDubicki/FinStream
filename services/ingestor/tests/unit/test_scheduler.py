@@ -15,6 +15,7 @@ from finstream_ingestor.scheduler import (
     DAILY_JOB_ID,
     HEARTBEAT_JOB_ID,
     INTRADAY_JOB_ID,
+    RUN_AT_STARTUP,
     build_scheduler,
     job_defaults,
     touch_heartbeat,
@@ -119,3 +120,17 @@ def test_heartbeat_file_is_created_and_refreshed(tmp_path: Path) -> None:
     first = beat.stat().st_mtime
     touch_heartbeat(beat)
     assert beat.stat().st_mtime >= first
+
+
+def test_every_recurring_job_also_runs_at_startup(make_settings) -> None:
+    """ADR-0003 trades a persistent job store for an immediate run on boot.
+
+    Without this the daily job would sit idle until the next market close, so a restart at 09:00
+    would mean no daily bars that day.
+    """
+    assert RUN_AT_STARTUP == (INTRADAY_JOB_ID, DAILY_JOB_ID, HEARTBEAT_JOB_ID)
+
+    scheduler = build(make_settings())
+    scheduled = {job.id: job.next_run_time for job in scheduler.get_jobs()}
+    for job_id in RUN_AT_STARTUP:
+        assert scheduled[job_id] is not None, f"{job_id} must run once at startup"

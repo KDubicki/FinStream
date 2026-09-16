@@ -142,9 +142,10 @@ All values are configured through the environment, see [configuration.md](config
 
 ## 3. Deployment
 
-- **Compose** (repo root) runs two services:
+- **Compose** (repo root) runs three services:
   - `db`: TimescaleDB image with a pinned tag, a named volume, and a `pg_isready` healthcheck.
-  - `ingestor`: built from `services/ingestor`, with `env_file: .env`, `depends_on: db (service_healthy)`, `restart: unless-stopped` and `init: true`.
+  - `ingestor`: built from `services/ingestor`, with `env_file: .env`, `depends_on: db (service_healthy)`, `restart: unless-stopped` and `init: true`. Runs as a non-root user, with a `HEALTHCHECK` that reads the scheduler's heartbeat file.
+  - `dashboard`: built from `services/dashboard`, read-only Streamlit UI published on `127.0.0.1:${DASHBOARD_PORT}` ([ADR-0005](adr/0005-serving-reads-raw-directly.md)).
 - **Network exposure:** the DB port is published on `127.0.0.1` only.
 - **Configuration:** the image contains no secrets. All configuration arrives through the environment at runtime.
 

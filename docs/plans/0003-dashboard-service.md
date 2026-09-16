@@ -121,7 +121,7 @@ Also fixed: two test modules shared the basename `test_queries.py`, which pytest
 
 **CI was extended in the same change**: `test`, `integration` and `docker-build` now run as a matrix over `[ingestor, dashboard]`, so the new service is gated exactly like the first one. Without that it would have been invisible to CI.
 
-**Not yet verified:** `docker compose up dashboard`. It needs a `.env` with `POSTGRES_PASSWORD`, which agents must not create (GR-5), so this is the maintainer's step.
+**Not yet verified:** `docker compose up dashboard`. It needs a `.env` with `POSTGRES_PASSWORD`, which agents must not create (GR-5), so this is the maintainer's step. Since plan 0001 M5 the Compose stack contains all three services, so that single command now starts the database, the ingestor and the dashboard together.
 
 ## Change log
 

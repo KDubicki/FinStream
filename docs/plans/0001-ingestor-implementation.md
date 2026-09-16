@@ -282,10 +282,10 @@ Each milestone is one Conventional Commit (code, tests and doc/plan updates toge
   - [x] `jobs.py`, `scheduler.py`, `healthcheck.py`, `main.py`
   - [x] Unit tests: resilience (one symbol fails), exhaustion → failed run, empty run, jobs registered according to flags with `max_instances=1` / `coalesce=True`, heartbeat + healthcheck freshness
   - [x] Integration test: `ingest()` with a fake source against a real DB, twice → identical row count
-- [ ] **M5: Docker and Compose.** Commit: `build(ingestor): add dockerfile and compose stack`
-  - [ ] `Dockerfile`, and add the `ingestor` service to the existing root `docker-compose.yml` (created with `db` + `dashboard` by plan 0003)
-  - [ ] Re-enable the Dependabot `docker` ecosystem in `.github/dependabot.yml` (removed until a Dockerfile exists)
-  - [ ] Smoke test per the `test` skill (the user provides `.env`); `docker compose restart ingestor` → no duplicates
+- [x] **M5: Docker and Compose.** Commit: `build(ingestor): add dockerfile and compose stack`
+  - [x] `Dockerfile`, and add the `ingestor` service to the existing root `docker-compose.yml` (created with `db` + `dashboard` by plan 0003)
+  - [x] Re-enable the Dependabot `docker` ecosystem in `.github/dependabot.yml` (removed until a Dockerfile exists)
+  - [x] Smoke test per the `test` skill (the user provides `.env`); `docker compose restart ingestor` → no duplicates
 - [ ] **M6: Review and document.** Commit: `docs: finalize ingestor documentation` + `docs(plans): mark plan 0001 done`
   - [ ] Golden-rules review of the full diff; Definition of Done
   - [ ] README status and quickstart; architecture, data model and configuration match the implementation; `docs/README.md` indexes updated
@@ -407,6 +407,20 @@ Behaviour locked down by tests, all with yfinance mocked (GR-7): UTC conversion 
 2. `main.py` had no tests at all. It now has wiring tests covering the startup order (wait for the database, create the schema, only then schedule), that the engine is released even when startup fails, and that SIGTERM calls `shutdown(wait=False)` so `docker compose down` is not a kill.
 
 Jobs behave as GR-3 requires: a failing symbol is recorded and the loop continues, an empty result is `empty` rather than `failed`, a database failure mid-job is contained, and even a failure while *writing the failure* does not escape.
+
+### 2026-09-17 · M5 Docker and Compose
+
+- `docker build services/ingestor` → PASS on the first build; image `finstream-ingestor:local`, **601 MB**, and it runs as **uid 10001** (non-root).
+- **Smoke test against a throwaway TimescaleDB** (not `docker compose`, which needs a `.env` that agents must not create, GR-5; a disposable container and a generated password were used instead, with no volume so nothing persisted):
+  - the container waited for the database, created the schema, and registered the hypertable (`timescaledb_information.hypertables` → 1);
+  - it fetched **real** data from Yahoo at startup: `SPY` 5 bars, `GC=F` 4 bars;
+  - both attempts were recorded in `raw.ingestion_runs` as `success` with matching `rows_received`/`rows_upserted`;
+  - `python -m finstream_ingestor.healthcheck` inside the container exited **0**;
+  - `docker stop` (SIGTERM) logged "shutting down" → "stopped" and the container exited with code **0**, so shutdown is graceful rather than a kill.
+- `ruff check`, `ruff format --check`, `mypy src` → PASS.
+- `pytest --cov=finstream_ingestor --cov-fail-under=85` → **PASS: `108 passed`, coverage 95.96%**.
+
+**A design gap the smoke test exposed.** [ADR-0003](../adr/0003-apscheduler-and-tenacity.md) accepts an in-memory job store *because* every job also runs at startup, and `architecture.md` says the same. The implementation only did that for the intraday and heartbeat jobs: the **daily job had no `next_run_time`**, so a restart at 09:00 would have meant no daily bars until 22:30 that evening. The daily job now runs at startup too, `RUN_AT_STARTUP` names the jobs this applies to, and a test asserts it.
 
 ## Change log
 

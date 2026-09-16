@@ -1,5 +1,5 @@
-# Local stack. Configuration comes from .env, which is never committed (AGENTS.md GR-4, GR-5).
-# The ingestor service is added by plan 0001 M5.
+# Local stack: database, ingestor and dashboard.
+# Configuration comes from .env, which is never committed (AGENTS.md GR-4, GR-5).
 services:
   db:
     image: timescale/timescaledb:2.30.0-pg16 # pinned in docs/research/2026-09-16-dependency-pins.md
@@ -18,6 +18,16 @@ services:
       timeout: 5s
       retries: 20
     restart: unless-stopped
+
+  ingestor:
+    build: ./services/ingestor
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    # init: PID 1 reaps children and forwards SIGTERM, so shutdown is graceful.
+    init: true
 
   dashboard:
     build: ./services/dashboard

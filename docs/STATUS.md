@@ -20,11 +20,11 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 | Service: database layer (schema, idempotent upsert, run records) | Done |
 | Service: Yahoo source (fetch, classify, retry) | Done |
 | Service: jobs, scheduler, entrypoint, healthcheck | Done. 107 tests, 95.95% coverage |
-| Dashboard (Streamlit, read-only) | In progress (plan 0003): queries, app and tests written |
+| Dashboard (Streamlit, read-only) | In progress (plan 0003): built and tested; Compose smoke test pending |
 
 ## What doesn't exist yet
 
-The ingestor's `Dockerfile` and its Compose service (M5). **The service is complete but not containerised yet**: run it locally and it will collect data; `docker compose` cannot start it until M5.
+Nothing essential. M6 remains: the final golden-rules review and closing plan 0001. **The stack is runnable**: `docker compose up` starts the database, the ingestor and the dashboard.
 
 ## Plan 0001 progress
 
@@ -35,8 +35,8 @@ The ingestor's `Dockerfile` and its Compose service (M5). **The service is compl
 | M2 schema + idempotent upsert | ✅ done |
 | M3 Yahoo source + retries | ✅ done |
 | M4 jobs, scheduler, main | ✅ done |
-| M5 Docker + Compose | ⬜ next |
-| M6 review + docs | ⬜ |
+| M5 Docker + Compose | ✅ done |
+| M6 review + docs | ⬜ next |
 
 ## Key decisions already made
 
@@ -51,6 +51,6 @@ None. Docker Desktop is running, so the TimescaleDB integration tests execute lo
 
 ## Next step
 
-M5: the ingestor's Dockerfile plus its Compose service, so `docker compose up` runs the whole stack — database, ingestor and dashboard — and the dashboard finally has data behind it.
+Create `.env` and run `docker compose up -d --build` to see the whole stack working (only you can create `.env`). Then M6: the golden-rules review and closing plan 0001.
 
 More detail: [plan 0001](plans/0001-ingestor-implementation.md) · [docs index](README.md) · [rules](../AGENTS.md)
