@@ -1,6 +1,6 @@
 # Plan 0002: CI pipeline
 
-- **Status:** In progress <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
+- **Status:** Done <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
 - **Created:** 2026-09-17
 - **Branch:** `main` (see Exceptions)
 - **Related:** [plan 0001](0001-ingestor-implementation.md) follow-ups, [methodology §8](../methodology.md), AGENTS.md GR-7, GR-8, GR-12
@@ -63,7 +63,7 @@ The Definition of Done as a checklist, plus a link to the plan and a place to re
 
 - [x] **M1: Workflows and repository files** — `ci.yml`, `security.yml`, `dependabot.yml`, `pull_request_template.md`
 - [x] **M2: Documentation** — methodology enforcement table gains the CI row; docs index and plan 0001 follow-up updated; README notes the CI gate
-- [ ] **M3: Verification** — YAML parses ✅; the CI commands reproduce locally ✅; the first real run on GitHub is green ⬜ (pending the push)
+- [x] **M3: Verification** — YAML parses ✅; the CI commands reproduce locally ✅; the first real run on GitHub is green ✅
 
 ## Test plan
 
@@ -95,11 +95,11 @@ CI configuration cannot be unit-tested, so verification is:
 
 ## Definition of Done
 
-- [ ] Workflows parse and are structurally asserted
-- [ ] Every CI command passes locally first
-- [ ] The first run on GitHub is green
-- [ ] Docs updated: methodology, docs index, plan 0001 follow-up, README
-- [ ] All tasks ticked, Verification log filled in, Status `Done`
+- [x] Workflows parse and are structurally asserted
+- [x] Every CI command passes locally first
+- [x] The first run on GitHub is green
+- [x] Docs updated: methodology, docs index, plan 0001 follow-up, README
+- [x] All tasks ticked, Verification log filled in, Status `Done`
 
 ## Verification log
 
@@ -117,7 +117,11 @@ CI configuration cannot be unit-tested, so verification is:
 ### 2026-09-17 · first push to GitHub
 
 - The push immediately triggered Dependabot runs for the new `dependabot.yml`. The **docker** ecosystem run **failed**, correctly: `services/ingestor` has no Dockerfile yet, so there is nothing to update. Fixed by removing that ecosystem until plan 0001 M5 adds the Dockerfile; a task there re-enables it.
+- **CI run #1** (`93feae2`) → **success**. All jobs green: pre-commit, unit tests on 3.11 and 3.12, integration + coverage gate, image build (skipped internally, no Dockerfile). `Conventional Commits` skipped, as designed: it runs on pull requests only. <https://github.com/KDubicki/FinStream/actions/runs/35147555294>
+- **CI run #2** (`48b80f1`, the Dependabot fix) → **success**, same jobs. <https://github.com/KDubicki/FinStream/actions/runs/35147674632>
+- **Caveat, stated plainly:** the `integration` job passes today only because `tests/integration/` is still empty, so it effectively runs the unit suite under the coverage gate. Its real value is proven in plan 0001 M2, when the TimescaleDB tests land. The Docker daemon on the runner was confirmed available (`docker version` step succeeded).
 
 ## Change log
 
 - 2026-09-17: created and approved (user request).
+- 2026-09-17: implemented and closed; CI runs #1 and #2 green on `main`.

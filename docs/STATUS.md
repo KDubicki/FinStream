@@ -13,7 +13,7 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 | Rulebook (`AGENTS.md`), methodology, ADRs | Done. 12 golden rules, 4 ADRs, phase workflow |
 | Agent skills (research / development / test) | Done, shared by every agent tool |
 | Rule enforcement (Claude Code hooks + pre-commit) | Done and tested: 60 hook cases pass, pre-commit is green |
-| CI (GitHub Actions) | Added (plan 0002): lint, types, tests, secret scan, weekly audit. First run pending |
+| CI (GitHub Actions) | Done (plan 0002): lint, types, tests, secret scan, weekly audit. First runs green |
 | Documentation (architecture, data model, configuration) | Done, as a design spec |
 | Plan 0001 + research notes R1–R4 | Done. Every open technical question is answered |
 | Service: config + logging | Done. 33 tests, 100% coverage on `src/` |
