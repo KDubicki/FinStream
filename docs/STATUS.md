@@ -18,12 +18,13 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 | Plan 0001 + research notes R1–R4 | Done. Every open technical question is answered |
 | Service: config + logging | Done |
 | Service: database layer (schema, idempotent upsert, run records) | Done |
-| Service: Yahoo source (fetch, classify, retry) | Done. 76 tests, 96.94% coverage, CI green |
+| Service: Yahoo source (fetch, classify, retry) | Done |
+| Service: jobs, scheduler, entrypoint, healthcheck | Done. 107 tests, 95.95% coverage |
 | Dashboard (Streamlit, read-only) | In progress (plan 0003): queries, app and tests written |
 
 ## What doesn't exist yet
 
-`jobs.py` and `scheduler.py` (M4) · the ingestor's `Dockerfile` (M5). **No data is being collected yet**: the pieces that fetch and store data exist, but nothing runs them on a schedule.
+The ingestor's `Dockerfile` and its Compose service (M5). **The service is complete but not containerised yet**: run it locally and it will collect data; `docker compose` cannot start it until M5.
 
 ## Plan 0001 progress
 
@@ -33,8 +34,8 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 | M1 scaffold, config, logging | ✅ done |
 | M2 schema + idempotent upsert | ✅ done |
 | M3 Yahoo source + retries | ✅ done |
-| M4 jobs, scheduler, main | ⬜ next |
-| M5 Docker + Compose | ⬜ |
+| M4 jobs, scheduler, main | ✅ done |
+| M5 Docker + Compose | ⬜ next |
 | M6 review + docs | ⬜ |
 
 ## Key decisions already made
@@ -50,6 +51,6 @@ None. Docker Desktop is running, so the TimescaleDB integration tests execute lo
 
 ## Next step
 
-M4: jobs, scheduler and `main` — the part that actually runs ingestion on a schedule, so the dashboard has data to show.
+M5: the ingestor's Dockerfile plus its Compose service, so `docker compose up` runs the whole stack — database, ingestor and dashboard — and the dashboard finally has data behind it.
 
 More detail: [plan 0001](plans/0001-ingestor-implementation.md) · [docs index](README.md) · [rules](../AGENTS.md)

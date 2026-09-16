@@ -278,10 +278,10 @@ Each milestone is one Conventional Commit (code, tests and doc/plan updates toge
 - [x] **M3: Yahoo source.** Commit: `feat(ingestor): add yahoo finance source with retries`
   - [x] `sources/base.py`, `sources/yahoo.py`
   - [x] Unit tests with mocked yfinance: normalisation / EL boundary, error classification, retry count, no retry on permanent errors, empty frame
-- [ ] **M4: Jobs, scheduler, main.** Commit: `feat(ingestor): schedule ingestion jobs with isolation and heartbeat`
-  - [ ] `jobs.py`, `scheduler.py`, `healthcheck.py`, `main.py`
-  - [ ] Unit tests: resilience (one symbol fails), exhaustion → failed run, empty run, jobs registered according to flags with `max_instances=1` / `coalesce=True`, heartbeat + healthcheck freshness
-  - [ ] Integration test: `ingest()` with a fake source against a real DB, twice → identical row count
+- [x] **M4: Jobs, scheduler, main.** Commit: `feat(ingestor): schedule ingestion jobs with isolation and heartbeat`
+  - [x] `jobs.py`, `scheduler.py`, `healthcheck.py`, `main.py`
+  - [x] Unit tests: resilience (one symbol fails), exhaustion → failed run, empty run, jobs registered according to flags with `max_instances=1` / `coalesce=True`, heartbeat + healthcheck freshness
+  - [x] Integration test: `ingest()` with a fake source against a real DB, twice → identical row count
 - [ ] **M5: Docker and Compose.** Commit: `build(ingestor): add dockerfile and compose stack`
   - [ ] `Dockerfile`, and add the `ingestor` service to the existing root `docker-compose.yml` (created with `db` + `dashboard` by plan 0003)
   - [ ] Re-enable the Dependabot `docker` ecosystem in `.github/dependabot.yml` (removed until a Dockerfile exists)
@@ -391,6 +391,22 @@ Two further issues found while getting the gate green: ruff's `target-version` w
 Behaviour locked down by tests, all with yfinance mocked (GR-7): UTC conversion from the exchange-local index (09:30 New York → 13:30 UTC), `NaN` → `None`, all-NaN rows dropped, row count preserved (no resampling), `auto_adjust=False` so both `close` and `adj_close` are stored, rate limits and network errors retried, missing prices treated as *empty* rather than failure, wrong symbols failing fast without burning the retry budget, and naive timestamps refused rather than silently localised.
 
 **One correction to M2's tooling change:** setting mypy's `python_version` to 3.11 broke as soon as `yahoo.py` imported pandas, because numpy ships stubs using PEP 695 `type` statements that mypy only parses when targeting 3.12+. mypy is back on 3.12; 3.11 compatibility is still enforced where it bites, by ruff (`target-version = "py311"`), by CI's 3.11 unit-test job, and by a `compileall` check.
+
+### 2026-09-17 · M4 jobs, scheduler, main
+
+- `ruff check .` / `ruff format --check .` → PASS.
+- `mypy src` → PASS: `Success: no issues found in 12 source files`.
+- `pytest --cov=finstream_ingestor --cov-fail-under=85` → **PASS: `107 passed`, coverage 95.95%**. `main.py` went from 0% to 96% and `healthcheck.py` from 67% to 94% once the wiring tests were added; without them the gate would have been scraping past at 85.69%.
+- `python3.11 -m compileall src tests` → PASS.
+
+**The R2 cron trap, now proven against the library rather than the docs.** A probe of APScheduler 3.11.3 shows `CronTrigger.from_crontab("30 22 * * 1-5")` returning Saturday 2026-09-19 22:30 as its next fire time, while `mon-fri` does not. That is a full day of wrong schedule, and it is exactly what the config validator refuses. It is now a regression test in `test_scheduler.py`.
+
+**Two things the tests corrected in my own work:**
+
+1. The first scheduler test asserted `job.max_instances == 1` and failed with `AttributeError`. The probe showed why: APScheduler copies job defaults onto a job only when it moves into the job store on `start()`, so a pending job carries none of them. Rather than assert on library internals, the defaults are now a small function of mine (`job_defaults(settings)`) that is tested directly.
+2. `main.py` had no tests at all. It now has wiring tests covering the startup order (wait for the database, create the schema, only then schedule), that the engine is released even when startup fails, and that SIGTERM calls `shutdown(wait=False)` so `docker compose down` is not a kill.
+
+Jobs behave as GR-3 requires: a failing symbol is recorded and the loop continues, an empty result is `empty` rather than `failed`, a database failure mid-job is contained, and even a failure while *writing the failure* does not escape.
 
 ## Change log
 
