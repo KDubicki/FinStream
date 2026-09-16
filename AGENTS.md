@@ -41,7 +41,7 @@ This file is the **canonical source of rules** for every AI agent (Claude Code, 
 9. **GR-9 Verify, don't assume.** Library APIs and versions MUST be checked against current sources (context7, PyPI, official docs), not memory. Agents MUST NOT claim tests or lint pass without running them and showing the output.
 10. **GR-10 Scope discipline.** Do only what the approved plan covers. Anything else you discover goes into the plan's "Follow-ups". Don't fix it silently.
 11. **GR-11 Docs move with code.** README, `docs/`, ADRs and the plan MUST be updated in the same change as the code they describe.
-12. **GR-12 Git hygiene.** Every commit MUST follow [Conventional Commits](https://www.conventionalcommits.org/) (see §8). Commit each completed, verified slice right away, so changes don't pile up uncommitted. Use one branch per plan (e.g. `feat/0001-ingestor`), and do no feature work directly on `main`. Agents MUST NOT bypass hooks (`--no-verify`, `SKIP=`), force-push, `git reset --hard`, `git clean -f` or `docker compose down -v` without explicit user confirmation.
+12. **GR-12 Git hygiene.** Every commit MUST follow [Conventional Commits](https://www.conventionalcommits.org/) (see §8). Commit at meaningful units: one complete, verified slice, typically a milestone or a coherent change. Don't spend separate commits on trivial edits such as plan status bumps; fold them into the related commit. Use one branch per plan (e.g. `feat/0001-ingestor`), and do no feature work directly on `main`. Agents MUST NOT bypass hooks (`--no-verify`, `SKIP=`), force-push, `git reset --hard`, `git clean -f` or `docker compose down -v` without explicit user confirmation.
 
 ## 4. Workflow
 
@@ -107,7 +107,7 @@ If a hook blocks an action, don't work around it with an equivalent command. Exp
   - **Scopes:** e.g. `ingestor`, `db`, `skills`, `hooks`, `adr`, `plans`.
   - **Subject:** imperative, lower-case, no trailing period, ≤ 72 characters.
   - **Breaking changes:** `!` after the type/scope or a `BREAKING CHANGE:` footer.
-  - **Contents:** one logical change per commit. Stage only that change's files, and never commit red or unverified work.
+  - **Contents:** one logical change per commit, including its code, tests and doc/plan updates. Stage only that change's files, and never commit red or unverified work.
   - **Example:** `feat(ingestor): add idempotent price upsert`.
 - **Branches:** `feat/NNNN-<slug>`, `fix/NNNN-<slug>`, `docs/<slug>`.
 - **Indexes:** keep [docs/README.md](docs/README.md) (ADR and plan tables) in sync (GR-11).

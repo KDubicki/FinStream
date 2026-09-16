@@ -24,7 +24,7 @@ description: Implementation procedure and code conventions for the FinStream rep
    - behaviour or architecture change → `docs/architecture.md`, `README.md`
    - new technical decision → ADR (via `research`)
 7. **Tick the task** in the plan.
-8. **Commit the slice right away** as a Conventional Commit (AGENTS.md GR-12, §8), e.g. `feat(ingestor): add idempotent upsert for market prices`. Stage only the files that belong to the slice, and never commit red or unverified work. Never bypass hooks. If pre-commit fails, fix the cause and commit again.
+8. **Commit the finished slice** as a Conventional Commit (AGENTS.md GR-12, §8), e.g. `feat(ingestor): add idempotent upsert for market prices`. Commit at meaningful units: bundle the slice's code, tests and doc/plan updates into one commit instead of committing each small edit on its own. Stage only the files that belong to the slice, and never commit red or unverified work. Never bypass hooks. If pre-commit fails, fix the cause and commit again.
 9. **Repeat** from step 2. When every task is ticked, run [Review & Document](#review--document-final-phase).
 
 ## Code conventions (Python services)
@@ -114,5 +114,5 @@ Before marking a plan `Done`:
 2. **Full gate.** Run the "Full gate" from the `test` skill and paste the output into the Verification log. Run the smoke test too if runtime behaviour, Docker or Compose changed.
 3. **Definition of Done.** Tick every item in the plan's DoD list. Anything that doesn't apply gets `n/a` plus the reason.
 4. **Docs match reality.** Check the README status and quickstart, `docs/architecture.md`, `docs/data-model.md`, and that `docs/configuration.md` agrees with `.env.example`. Check ADR statuses and the tables in `docs/README.md`.
-5. **Close the plan.** Set `Status: Done`, add a one-line summary to its Change log, and commit (`docs(plans): mark plan NNNN done`).
+5. **Close the plan.** Set `Status: Done` and add a one-line summary to its Change log, as part of the final commit for the work.
 6. **Report to the user:** what changed, the verification evidence (real output), follow-ups, and any exceptions granted.

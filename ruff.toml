@@ -1,4 +1,0 @@
-# Root ruff config for repo-level Python: the Claude Code hooks in .claude/hooks/.
-# Hooks run on the macOS system python3 (3.9), so ruff must never introduce 3.10+ runtime syntax.
-# Each service has its own [tool.ruff] config in services/<name>/pyproject.toml, which takes precedence there.
-target-version = "py39"
