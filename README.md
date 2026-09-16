@@ -2,8 +2,8 @@
 
 FinStream is a modular data platform for financial market data: gold, ETFs and stock indices. It's built as a set of small, single-purpose microservices around a PostgreSQL + TimescaleDB time-series database.
 
-> **Status: bootstrap.** Documentation, the agent methodology and the first implementation plan are in place. There is no service code yet.
-> Next step: review and approve [plan 0001: FinStream Ingestor](docs/plans/0001-ingestor-implementation.md).
+> **Status:** plan 0001 is in progress — research and the service scaffold (config + logging) are done; the database, source, scheduler and Docker are still to come.
+> Short summary: [docs/STATUS.md](docs/STATUS.md).
 
 ## Architecture
 

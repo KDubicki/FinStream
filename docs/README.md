@@ -2,6 +2,7 @@
 
 | Document | Purpose |
 |---|---|
+| [STATUS.md](STATUS.md) | Short summary of where the project stands right now |
 | [methodology.md](methodology.md) | How work is done: phases, gates, golden-rule rationale, commit policy, enforcement layers |
 | [architecture.md](architecture.md) | Platform and Ingestor architecture, EL boundary, scheduling, failure modes |
 | [data-model.md](data-model.md) | `raw` schema DDL, keys, hypertable, upsert semantics |
