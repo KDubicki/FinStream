@@ -40,7 +40,12 @@ repos:
     hooks:
       - id: mypy
         files: ^services/ingestor/src/
-        # additional_dependencies (pydantic, SQLAlchemy, pandas-stubs, ...) get pinned in plan 0001, M1.
+        args: [--config-file=services/ingestor/pyproject.toml]
+        additional_dependencies:
+          - pydantic==2.13.5
+          - pydantic-settings==2.15.0
+          - SQLAlchemy==2.0.54
+          - pandas-stubs==3.0.5.260914
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1

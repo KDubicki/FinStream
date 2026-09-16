@@ -1,0 +1,36 @@
+# Tool configuration only. Dependencies live in requirements*.txt (AGENTS.md GR-8),
+# and the package is run from src/ via PYTHONPATH rather than being installed.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "PTH", "RET", "ARG", "TID", "BLE"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG001", "ARG002"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+mypy_path = "src"
+packages = ["finstream_ingestor"]
+
+[[tool.mypy.overrides]]
+module = ["yfinance.*", "apscheduler.*", "pythonjsonlogger.*", "testcontainers.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: needs a running Docker daemon (testcontainers); excluded with -m 'not integration'",
+]
+
+[tool.coverage.run]
+source = ["finstream_ingestor"]
+branch = true

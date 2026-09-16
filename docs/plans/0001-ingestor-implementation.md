@@ -256,20 +256,20 @@ A PyPI snapshot from 2026-09-15 was the starting point. **Final pins are in the 
 | **R1** | `Ticker.history(auto_adjust=False, actions=False)` per symbol, with `yf.config.debug.hide_exceptions = False`. Error classification is fixed (table above). The index is exchange-local and tz-aware, so normalisation only needs `tz_convert("UTC")`. Columns: `Open, High, Low, Close, Adj Close, Volume`. |
 | **R2** | [ADR-0003](../adr/0003-apscheduler-and-tenacity.md) **accepted**. APScheduler 3.11.3 treats `0` as Monday while crontab treats it as Sunday, and `from_crontab` keeps APScheduler's numbering, so `DAILY_CRON` keeps day names and config rejects a numeric day-of-week. `max_instances` already defaults to 1. |
 | **R3** | `create_hypertable(…, by_range('ts'), if_not_exists => TRUE, migrate_data => TRUE)` confirmed against TimescaleDB's source. Every unique constraint must include the partitioning column, which our primary key does. Integration tests use the pinned image through testcontainers. |
-| **R4** | Exact pins chosen; image pinned to `timescale/timescaledb:2.30.0-pg16` (ADR-0002 specifies PostgreSQL 16). ruff-pre-commit bumped to `v0.16.8` to match the ruff pin. **Open:** pandas 3.0.5 with yfinance 1.7.0 is unproven and gets verified in M1. |
+| **R4** | Exact pins chosen; image pinned to `timescale/timescaledb:2.30.0-pg16` (ADR-0002 specifies PostgreSQL 16). ruff-pre-commit bumped to `v0.16.8` to match the ruff pin. pandas 3.0.5 with yfinance 1.7.0 **verified working** during M1 (see the Verification log). |
 
 ## Tasks
 
 Each milestone is one Conventional Commit (code, tests and doc/plan updates together), made once its gate is green.
 
 - [ ] **M0: Research.** R1–R4 notes in `docs/research/`; ADR-0003 accepted or superseded; this plan updated with findings (a material design change sends it back for approval). Commit: `docs(research): …`
-- [ ] **M1: Scaffold, config, logging.** Commit: `feat(ingestor): scaffold service with config and logging`
-  - [ ] `services/ingestor/` layout, `pyproject.toml`, `requirements*.txt`, `.dockerignore`
-  - [ ] `config.py` (all variables from configuration.md, with validation) and `logging_setup.py`
-  - [ ] Validation rejecting a numeric day-of-week in `DAILY_CRON`, with an error explaining APScheduler's Monday=0 mismatch (R2)
-  - [ ] Verify pandas 3.0.5 works with yfinance 1.7.0; if not, fall back to `pandas==2.*` and update the R4 note
-  - [ ] root `.env.example`; mypy `additional_dependencies` in `.pre-commit-config.yaml`
-  - [ ] Tests: config fail-fast, defaults, symbol list parsing, cron validation, JSON log shape
+- [x] **M1: Scaffold, config, logging.** Commit: `feat(ingestor): scaffold service with config and logging`
+  - [x] `services/ingestor/` layout, `pyproject.toml`, `requirements*.txt`, `.dockerignore`
+  - [x] `config.py` (all variables from configuration.md, with validation) and `logging_setup.py`
+  - [x] Validation rejecting a numeric day-of-week in `DAILY_CRON`, with an error explaining APScheduler's Monday=0 mismatch (R2)
+  - [x] Verify pandas 3.0.5 works with yfinance 1.7.0; if not, fall back to `pandas==2.*` and update the R4 note — **verified, no fallback needed**
+  - [x] root `.env.example`; mypy `additional_dependencies` in `.pre-commit-config.yaml`
+  - [x] Tests: config fail-fast, defaults, symbol list parsing, cron validation, JSON log shape
 - [ ] **M2: Schema and upsert.** Commit: `feat(ingestor): add raw schema and idempotent upsert`
   - [ ] `schema.py`, `db.py` (`create_engine`, `wait_for_db`, `init_schema`, `upsert_bars`, `start_run`, `finish_run`)
   - [ ] Session-scoped container fixture: `PostgresContainer("timescale/timescaledb:2.30.0-pg16", driver="psycopg")` imported from `testcontainers.community.postgres` (the old `testcontainers.postgres` path warns it is deprecated)
@@ -341,7 +341,18 @@ None.
 
 ## Verification log
 
-*Empty. It gets filled in during implementation.*
+### 2026-09-16 · M1 scaffold, config, logging
+
+Run from `services/ingestor` in `.venv` (Python 3.12.13).
+
+- `pip install -r requirements-dev.txt` → PASS. The pinned set resolves; **pandas 3.0.5 works with yfinance 1.7.0**, so the R4 fallback to pandas 2.x isn't needed.
+- Smoke test → PASS: `yf.config.debug.hide_exceptions` defaults to `True` and is settable (R1 confirmed at runtime); `YFRateLimitError`, `YFPricesMissingError`, `YFTzMissingError`, `YFInvalidPeriodError` import; `pythonjsonlogger.json.JsonFormatter` imports.
+- `ruff check .` → PASS (one E501 found and fixed first).
+- `ruff format --check .` → PASS: `7 files already formatted`.
+- `mypy src` → PASS: `Success: no issues found in 4 source files`.
+- `pytest -m "not integration" -q --cov=finstream_ingestor --cov-fail-under=85` → PASS: `33 passed`, coverage **100%** on `src/`.
+- `.env.example` ↔ `docs/configuration.md` parity → PASS: 23 variables, none undocumented, none missing.
+- Integration tests → **NOT RUN**: the Docker daemon is not reachable on this machine. M2 needs Docker Desktop started.
 
 ## Change log
 
