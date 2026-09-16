@@ -283,6 +283,7 @@ Each milestone is one Conventional Commit (code, tests and doc/plan updates toge
   - [ ] Integration test: `ingest()` with a fake source against a real DB, twice → identical row count
 - [ ] **M5: Docker and Compose.** Commit: `build(ingestor): add dockerfile and compose stack`
   - [ ] `Dockerfile`, root `docker-compose.yml`
+  - [ ] Re-enable the Dependabot `docker` ecosystem in `.github/dependabot.yml` (removed until a Dockerfile exists)
   - [ ] Smoke test per the `test` skill (the user provides `.env`); `docker compose restart ingestor` → no duplicates
 - [ ] **M6: Review and document.** Commit: `docs: finalize ingestor documentation` + `docs(plans): mark plan 0001 done`
   - [ ] Golden-rules review of the full diff; Definition of Done

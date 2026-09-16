@@ -114,6 +114,10 @@ CI configuration cannot be unit-tested, so verification is:
 - **`docker-build` guard** → the probe reports `exists=false`, so the build step is skipped until plan 0001 M5 adds the Dockerfile, exactly as designed.
 - **Not yet verified:** the first real run on GitHub, and the `integration` job (no Docker daemon on this machine, so it has never run locally either).
 
+### 2026-09-17 · first push to GitHub
+
+- The push immediately triggered Dependabot runs for the new `dependabot.yml`. The **docker** ecosystem run **failed**, correctly: `services/ingestor` has no Dockerfile yet, so there is nothing to update. Fixed by removing that ecosystem until plan 0001 M5 adds the Dockerfile; a task there re-enables it.
+
 ## Change log
 
 - 2026-09-17: created and approved (user request).

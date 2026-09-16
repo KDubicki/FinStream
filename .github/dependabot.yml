@@ -33,14 +33,5 @@ updates:
         exclude-patterns: ["pytest*", "ruff", "mypy", "pandas-stubs", "testcontainers*"]
       python-dev:
         patterns: ["pytest*", "ruff", "mypy", "pandas-stubs", "testcontainers*"]
-
-  - package-ecosystem: docker
-    directory: "/services/ingestor"
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Europe/Warsaw
-    commit-message:
-      prefix: build
-    open-pull-requests-limit: 3
+  # The docker ecosystem is added together with the Dockerfile (plan 0001, M5):
+  # without one, Dependabot's docker job fails on every run.
