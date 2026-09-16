@@ -6,7 +6,7 @@ How work is done in FinStream, and why. [AGENTS.md](../AGENTS.md) holds the shor
 
 1. **Plan before code.** Non-trivial work starts from a written plan that the user has approved. Plans are cheap to change and code isn't.
 2. **Evidence over assertion.** Facts about libraries come from current primary sources. Claims that something works come from real command output.
-3. **Small, verified, committed slices.** Each slice is tested and committed right away as a Conventional Commit, which keeps the history reviewable and easy to revert.
+3. **Small, verified, committed slices.** Each slice is tested and committed as a Conventional Commit at a meaningful unit of work, which keeps the history reviewable and easy to revert.
 4. **Docs are part of the change.** A change without its documentation isn't finished.
 5. **Layered enforcement.** Rules are written down (AGENTS.md), taught step by step (skills), and checked by tooling (Claude Code hooks, pre-commit). A rule that only lives in prose eventually gets broken.
 6. **One rulebook, many agents.** Every tool reads the same `AGENTS.md` and the same skills. Nothing is duplicated per tool.
@@ -88,7 +88,7 @@ The checklist lives in [AGENTS.md §6](../AGENTS.md#6-definition-of-done) and in
 | Plan | `docs/plans/NNNN-<slug>.md` | Draft → Approved → In progress → Done / Abandoned | Tasks are ticked as slices land. Verification log and Change log are append-only |
 | ADR | `docs/adr/NNNN-<slug>.md` | Proposed → Accepted → Superseded by ADR-NNNN / Deprecated | Accepted ADRs are immutable; only a one-line status change is allowed (hook-enforced) |
 | Research note | `docs/research/YYYY-MM-DD-<topic>.md` | Draft → Final | Findings carry source + version + date |
-| Commit | Git history | — | Conventional Commits, one logical change per commit, committed as soon as it's verified |
+| Commit | Git history | — | Conventional Commits, one logical change per commit, committed once that slice is verified |
 
 Indexes of ADRs and plans are kept in [docs/README.md](README.md).
 
@@ -98,7 +98,7 @@ Indexes of ADRs and plans are kept in [docs/README.md](README.md).
   - Types: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `style`, `build`, `ci`, `chore`, `revert`.
   - Subject: imperative, lower-case, no trailing period, ≤ 72 characters.
   - Breaking changes: `!` or a `BREAKING CHANGE:` footer.
-- **Commit each verified slice right away.** Don't let work pile up uncommitted, and don't commit red or unverified work.
+- **Commit at meaningful units.** A commit is one complete, verified slice, typically a milestone, together with its tests and doc/plan updates. Don't let work pile up uncommitted, don't commit red or unverified work, and don't spend a commit on a trivial edit such as a status bump.
 - **Stage only the slice's files.** Never use `git add -A` blindly.
 - **Branches:** one per plan (`feat/NNNN-<slug>`). The initial repository bootstrap is the only work committed directly to `main`.
 

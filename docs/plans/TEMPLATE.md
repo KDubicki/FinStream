@@ -29,7 +29,7 @@
 
 ## Tasks
 
-Each milestone is one coherent, testable slice, committed right away as a Conventional Commit.
+Each milestone is one coherent, testable slice, committed as a single Conventional Commit together with its tests and doc updates.
 
 - [ ] **M1: <milestone>**
   - [ ] <task>

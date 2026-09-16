@@ -54,7 +54,7 @@ def main() -> None:
             "- No code without an Approved plan in docs/plans/. Never read or edit .env files."
             " Never bypass or work around hooks."
         ),
-        "- Commit every verified slice right away, always as a Conventional Commit (GR-12).",
+        "- Commit at meaningful units (a verified slice), always as a Conventional Commit (GR-12).",
         "- Never claim tests or lint pass without running them and showing real output (GR-9).",
         "- Active plans: " + (", ".join(active) if active else "none"),
     ]
