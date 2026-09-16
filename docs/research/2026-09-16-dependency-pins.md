@@ -17,7 +17,7 @@ All versions come from the PyPI JSON API, checked 2026-09-16.
 | Package | Pin | Released | `requires_python` | Note |
 |---|---|---|---|---|
 | yfinance | `==1.7.0` | 2026-08-26 | not declared | Requires `pandas>=1.3.0`, `curl_cffi>=0.15` |
-| pandas | `==3.0.5` | 2026-07-22 | `>=3.11` | **Flagged:** yfinance allows 3.x, but it isn't proven at runtime |
+| pandas | `==3.0.5` | 2026-07-22 | `>=3.11` | **Verified 2026-09-16** in M1: installs and works with yfinance 1.7.0 |
 | SQLAlchemy | `==2.0.54` | 2026-09-15 | `>=3.7` | Stay on 2.0.x; 2.1 is still in release candidates |
 | psycopg[binary] | `==3.3.5` | 2026-08-31 | `>=3.10` | Binary wheels, so no build toolchain in the image |
 | APScheduler | `==3.11.3` | 2026-06-28 | `>=3.8` | 4.0 is still alpha (ADR-0003) |
@@ -52,13 +52,13 @@ All versions come from the PyPI JSON API, checked 2026-09-16.
 ## Recommendation
 
 1. Pin exactly the versions above with `==`.
-2. **Verify pandas 3.x against yfinance first.** M1 installs the environment and runs a smoke test (import yfinance, normalise a fixture). If it fails, fall back to `pandas==2.*` plus a matching `pandas-stubs`, and record that in this note.
+2. ~~**Verify pandas 3.x against yfinance first.**~~ **Done in M1 (2026-09-16):** the pinned set installs cleanly into a Python 3.12.13 venv, `import yfinance` works with pandas 3.0.5, the exception classes import, and `yf.config.debug.hide_exceptions` behaves as R1 described. No fallback to pandas 2.x is needed. Evidence is in the plan's Verification log.
 3. Pin the database image at `timescale/timescaledb:2.30.0-pg16` in both `docker-compose.yml` and the integration-test fixture (ADR-0002 specifies PostgreSQL 16).
 4. In M1, bump ruff-pre-commit to `v0.16.8` and fill in the mypy `additional_dependencies`.
 
 ## Risks & open questions
 
-- **pandas 3.x with yfinance 1.7** is the main unknown, and step 2 resolves it before any code depends on it.
+- ~~pandas 3.x with yfinance 1.7 is the main unknown~~ — resolved on 2026-09-16, see above. Note that only import-level and DataFrame-level compatibility is proven; the first real network fetch happens in M3, which is exercised against mocked fixtures (GR-7).
 - Pinning exactly means updates are deliberate. A dependency-update policy (e.g. `pip-audit`, Renovate) is already on the plan's follow-up list.
 
 ## Sources
