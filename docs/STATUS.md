@@ -20,7 +20,7 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 | Service: database layer (schema, idempotent upsert, run records) | Done |
 | Service: Yahoo source (fetch, classify, retry) | Done |
 | Service: jobs, scheduler, entrypoint, healthcheck | Done. 107 tests, 95.95% coverage |
-| Dashboard (Streamlit, read-only) | In progress (plan 0003): built and tested; Compose smoke test pending |
+| Dashboard (Streamlit, read-only) | Done (plan 0003). Running locally and showing live data |
 
 ## What doesn't exist yet
 
@@ -45,12 +45,16 @@ Nothing essential. M6 remains: the final golden-rules review and closing plan 00
 - APScheduler 3.11 + tenacity. `DAILY_CRON` must use day names, because APScheduler counts `0` as Monday while classic cron counts it as Sunday (ADR-0003).
 - Versions are pinned exactly. pandas 3.0.5 with yfinance 1.7.0 is verified to work.
 
+## Running locally
+
+`docker compose up -d --build` starts all three services. On this machine the database is published on **`127.0.0.1:5433`**, not the default 5432, because another project already uses that port; `POSTGRES_PORT` in `.env` controls it. The dashboard is at <http://127.0.0.1:8501>.
+
 ## Blocker
 
-None. Docker Desktop is running, so the TimescaleDB integration tests execute locally as well as in CI.
+None.
 
 ## Next step
 
-Create `.env` and run `docker compose up -d --build` to see the whole stack working (only you can create `.env`). Then M6: the golden-rules review and closing plan 0001.
+M6: the golden-rules review over the whole diff, a docs pass, and closing plan 0001.
 
 More detail: [plan 0001](plans/0001-ingestor-implementation.md) · [docs index](README.md) · [rules](../AGENTS.md)

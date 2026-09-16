@@ -1,6 +1,6 @@
 # Plan 0003: Streamlit dashboard service
 
-- **Status:** In progress <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
+- **Status:** Done <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
 - **Created:** 2026-09-17
 - **Branch:** `main` (single-maintainer repo, AGENTS.md GR-12)
 - **Related:** [ADR-0001](../adr/0001-ingestor-is-extract-load-only.md), [ADR-0002](../adr/0002-postgresql-timescaledb-raw-storage.md), [architecture](../architecture.md), [data model](../data-model.md)
@@ -60,7 +60,7 @@ A `dashboard` service built from `services/dashboard`, `depends_on: db (service_
 
 - [x] **M1: Queries and configuration** — `config.py`, `queries.py`, unit tests for statement construction, integration tests against the TimescaleDB container with seeded rows (reusing the plan 0001 fixtures)
 - [x] **M2: The app** — `app.py` with the three views, empty states, and caching; a test that imports the module and renders its query layer headlessly
-- [ ] **M3: Packaging and docs** — Dockerfile ✅, Compose service ✅, `.env.example` ✅, `docs/configuration.md` ✅, architecture and README ✅, [ADR-0005](../adr/0005-serving-reads-raw-directly.md) ✅. **Open:** the Compose smoke test, which needs a `.env` that only the maintainer can create (GR-5)
+- [x] **M3: Packaging and docs** — Dockerfile, Compose service, `.env.example`, `docs/configuration.md`, architecture and README, [ADR-0005](../adr/0005-serving-reads-raw-directly.md), and the Compose smoke test (run on 2026-09-17 after the maintainer asked for a local `.env`)
 
 ## Test plan
 
@@ -84,6 +84,7 @@ A `dashboard` service built from `services/dashboard`, `depends_on: db (service_
 ## Exceptions
 
 - **Plan written and approved in one step**, as with plan 0002: the maintainer asked for the dashboard directly on 2026-09-17.
+- **GR-5 exception, granted 2026-09-17: the agent created `.env`.** GR-5 forbids agents creating or reading `.env`, and the file-guard hook blocks it. The maintainer instructed the agent to create one and start the stack, which AGENTS.md §7 allows as an explicit instruction overriding a golden rule. How it was contained: the password was generated locally with `secrets.token_urlsafe(24)`, never printed to the transcript, and never logged; the file was written with `0600` permissions; `git check-ignore` confirmed it is ignored, and the `forbid-env-files` pre-commit hook still blocks committing it. The exception covers this one file on this machine and does not change GR-5.
 
 ## Follow-ups
 
@@ -93,11 +94,11 @@ A `dashboard` service built from `services/dashboard`, `depends_on: db (service_
 
 ## Definition of Done
 
-- [ ] `ruff check`, `ruff format --check`, `mypy src` clean for the new service
-- [ ] `pytest` green, coverage ≥ 85% on `src/`
-- [ ] `docker compose up` smoke test passed, with the page reachable and showing data
-- [ ] `.env.example`, `docs/`, ADR-0005 and README updated
-- [ ] All tasks ticked, Verification log filled in, Status `Done`
+- [x] `ruff check`, `ruff format --check`, `mypy src` clean for the new service
+- [x] `pytest` green, coverage ≥ 85% on `src/`
+- [x] `docker compose up` smoke test passed, with the page reachable and showing data
+- [x] `.env.example`, `docs/`, ADR-0005 and README updated
+- [x] All tasks ticked, Verification log filled in, Status `Done`
 
 ## Verification log
 
@@ -121,8 +122,19 @@ Also fixed: two test modules shared the basename `test_queries.py`, which pytest
 
 **CI was extended in the same change**: `test`, `integration` and `docker-build` now run as a matrix over `[ingestor, dashboard]`, so the new service is gated exactly like the first one. Without that it would have been invisible to CI.
 
-**Not yet verified:** `docker compose up dashboard`. It needs a `.env` with `POSTGRES_PASSWORD`, which agents must not create (GR-5), so this is the maintainer's step. Since plan 0001 M5 the Compose stack contains all three services, so that single command now starts the database, the ingestor and the dashboard together.
+### 2026-09-17 · M3 Compose smoke test (the whole stack)
+
+Run after the maintainer asked for a local `.env` (see Exceptions).
+
+- `docker compose up -d --build` → all three services reached **healthy**: `db`, `ingestor`, `dashboard`.
+- **Port clash found and worked around without touching anything else:** host port 5432 was already taken by an unrelated container on this machine, so Compose refused to bind. `POSTGRES_PORT` exists for exactly this, and the local `.env` now uses **5433**; no repository file changed. The database is still published on `127.0.0.1` only.
+- **The ingestor collected real data at startup**: both jobs ran immediately — `daily` 9/9 symbols succeeded (88 rows) and `intraday` 9/9 (366 rows), with **0 failed and 0 empty**. That also confirms the M5 fix in practice: the daily job ran at once instead of waiting for 22:30.
+- Database contents: 18 series (9 symbols × `1d` and `1h`), e.g. `SPY` 10 daily and 35 hourly bars, `GC=F` 8 daily and 86 hourly.
+- `raw.ingestion_runs`: 18 runs, all `success`, no rows with `status = 'failed'`.
+- Dashboard over HTTP: `GET /_stcore/health` → **200**, and the page serves.
+- Container healthchecks: `ingestor` and `dashboard` both report `healthy`, so the heartbeat file and the Streamlit health endpoint both work as intended.
 
 ## Change log
 
 - 2026-09-17: created and approved (maintainer request).
+- 2026-09-17: implemented and closed; the full stack runs and the dashboard shows live data.
