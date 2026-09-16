@@ -1,0 +1,108 @@
+# Configuration
+
+All configuration comes from environment variables (GR-4). Locally they're loaded from a `.env` file at the repo root, which Docker Compose passes to the containers.
+
+- **This document is the source of truth.** `.env.example` must list every variable below with a safe placeholder or default, in the same order.
+- **`.env` is never committed and never read or edited by agents** (GR-5). The user creates it: `cp .env.example .env`.
+- **Validation happens at startup** (pydantic-settings). An invalid or missing required value stops the service with an error naming the variable.
+
+> **Status: design.** This takes effect with [plan 0001](plans/0001-ingestor-implementation.md). A new or changed variable must update this file and `.env.example` in the same change.
+
+## Database
+
+| Variable | Required | Default | Used by | Description / validation |
+|---|---|---|---|---|
+| `POSTGRES_USER` | no | `finstream` | db, smoke test | Database superuser created by the DB container |
+| `POSTGRES_PASSWORD` | **yes** | — | db | Password for `POSTGRES_USER`. Compose refuses to start without it |
+| `POSTGRES_DB` | no | `finstream` | db, smoke test | Database name |
+| `DATABASE_URL` | **yes** | — | ingestor | SQLAlchemy URL with the psycopg 3 driver: `postgresql+psycopg://<user>:<password>@db:5432/<db>`. Special characters in the password must be URL-encoded. Stored as a secret and never logged unmasked |
+| `TIMESCALEDB_ENABLED` | no | `true` | ingestor | `true`: create the `timescaledb` extension and the hypertable. `false`: plain PostgreSQL tables |
+
+## Source: Yahoo Finance
+
+| Variable | Required | Default | Description / validation |
+|---|---|---|---|
+| `YAHOO_SYMBOLS` | no | `GC=F,GLD,IAU,SPY,QQQ,VOO,^GSPC,^IXIC,^DJI` | Comma-separated Yahoo symbols. Whitespace is trimmed, duplicates removed, must not be empty |
+
+Default symbol set:
+
+| Symbol | Instrument | Asset class |
+|---|---|---|
+| `GC=F` | COMEX gold futures (front month) | Gold |
+| `GLD`, `IAU` | Gold ETFs | Gold / ETF |
+| `SPY`, `VOO` | S&P 500 ETFs | ETF |
+| `QQQ` | Nasdaq-100 ETF | ETF |
+| `^GSPC` | S&P 500 index | Index |
+| `^IXIC` | Nasdaq Composite index | Index |
+| `^DJI` | Dow Jones Industrial Average | Index |
+
+## Schedules
+
+| Variable | Required | Default | Description / validation |
+|---|---|---|---|
+| `SCHEDULER_TIMEZONE` | no | `UTC` | IANA timezone for cron triggers. UTC avoids DST surprises |
+| `SCHEDULER_MISFIRE_GRACE_SECONDS` | no | `300` | How late a trigger may still run (APScheduler `misfire_grace_time`). Positive integer |
+| `INTRADAY_ENABLED` | no | `true` | Enable the intraday job |
+| `INTRADAY_INTERVAL` | no | `1h` | Bar interval requested from Yahoo. Must be a supported yfinance interval |
+| `INTRADAY_EVERY_MINUTES` | no | `60` | How often the intraday job runs. Positive integer |
+| `INTRADAY_LOOKBACK` | no | `5d` | Period fetched on each run (yfinance period string). Should overlap previous runs |
+| `DAILY_ENABLED` | no | `true` | Enable the daily job |
+| `DAILY_CRON` | no | `30 22 * * mon-fri` | 5-field crontab in `SCHEDULER_TIMEZONE`. The default is 22:30 UTC on weekdays, after the US close in both EST and EDT. **Use day names** (`mon-fri`), not numbers, because APScheduler's day-of-week numbering can differ from classic cron (verified in plan 0001 R2) |
+| `DAILY_LOOKBACK` | no | `10d` | Period of `1d` bars fetched on each daily run |
+| `BACKFILL_ON_START` | no | `false` | Run a one-off `1d` backfill at startup |
+| `BACKFILL_PERIOD` | no | `2y` | Backfill period (yfinance period string, e.g. `1y`, `5y`, `max`) |
+
+> Yahoo limits how far back intraday intervals go (roughly the last 730 days for `1h`), which is **UNVERIFIED** until plan 0001 R1. Backfill therefore uses daily bars only.
+
+## Retries
+
+| Variable | Required | Default | Description / validation |
+|---|---|---|---|
+| `RETRY_MAX_ATTEMPTS` | no | `5` | Max attempts per API call or DB operation (including the first). Integer ≥ 1 |
+| `RETRY_MAX_WAIT_SECONDS` | no | `60` | Upper bound of the exponential backoff with jitter between attempts. Integer ≥ 0 |
+
+## Health & logging
+
+| Variable | Required | Default | Description / validation |
+|---|---|---|---|
+| `HEARTBEAT_FILE` | no | `/tmp/finstream-ingestor.heartbeat` | File touched by the heartbeat job and checked by the Docker `HEALTHCHECK` |
+| `HEARTBEAT_EVERY_SECONDS` | no | `60` | Heartbeat period. The healthcheck treats the service as unhealthy if the file is older than 3× this value |
+| `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `LOG_FORMAT` | no | `json` | `json` (default, for containers) or `text` (local debugging) |
+
+## Example `.env.example` (created in plan 0001, M1)
+
+```dotenv
+# --- Database ---
+POSTGRES_USER=finstream
+POSTGRES_PASSWORD=change-me
+POSTGRES_DB=finstream
+DATABASE_URL=postgresql+psycopg://finstream:change-me@db:5432/finstream
+TIMESCALEDB_ENABLED=true
+
+# --- Source: Yahoo Finance ---
+YAHOO_SYMBOLS=GC=F,GLD,IAU,SPY,QQQ,VOO,^GSPC,^IXIC,^DJI
+
+# --- Schedules ---
+SCHEDULER_TIMEZONE=UTC
+SCHEDULER_MISFIRE_GRACE_SECONDS=300
+INTRADAY_ENABLED=true
+INTRADAY_INTERVAL=1h
+INTRADAY_EVERY_MINUTES=60
+INTRADAY_LOOKBACK=5d
+DAILY_ENABLED=true
+DAILY_CRON=30 22 * * mon-fri
+DAILY_LOOKBACK=10d
+BACKFILL_ON_START=false
+BACKFILL_PERIOD=2y
+
+# --- Retries ---
+RETRY_MAX_ATTEMPTS=5
+RETRY_MAX_WAIT_SECONDS=60
+
+# --- Health & logging ---
+HEARTBEAT_FILE=/tmp/finstream-ingestor.heartbeat
+HEARTBEAT_EVERY_SECONDS=60
+LOG_LEVEL=INFO
+LOG_FORMAT=json
+```
