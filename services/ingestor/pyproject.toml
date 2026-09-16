@@ -14,14 +14,18 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "PTH", "RET", "A
 "tests/*" = ["ARG001", "ARG002"]
 
 [tool.mypy]
-python_version = "3.11"  # type-check against the oldest supported version
+# 3.12, not 3.11: numpy ships stubs using PEP 695 `type` statements, which mypy only parses
+# when targeting 3.12+. Compatibility with 3.11 is enforced where it actually matters -
+# ruff targets py311 (no 3.12-only rewrites) and CI runs the unit tests on 3.11.
+python_version = "3.12"
 strict = true
 warn_unreachable = true
 mypy_path = "src"
 packages = ["finstream_ingestor"]
 
 [[tool.mypy.overrides]]
-module = ["yfinance.*", "apscheduler.*", "pythonjsonlogger.*", "testcontainers.*"]
+module = ["yfinance.*", "apscheduler.*", "pythonjsonlogger.*", "testcontainers.*",
+          "curl_cffi.*", "requests.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

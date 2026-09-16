@@ -275,9 +275,9 @@ Each milestone is one Conventional Commit (code, tests and doc/plan updates toge
   - [x] Session-scoped container fixture: `PostgresContainer("timescale/timescaledb:2.30.0-pg16", driver="psycopg")` imported from `testcontainers.community.postgres` (the old `testcontainers.postgres` path warns it is deprecated)
   - [x] Integration tests: schema re-entrancy + hypertable exists; idempotency; revision (`updated_at` bumped only on change); plain-PostgreSQL mode; run lifecycle
   - [x] `sources/base.py`: the `PriceBar` dataclass (the upsert needs a row type; the `PriceSource` protocol and error types still arrive in M3)
-- [ ] **M3: Yahoo source.** Commit: `feat(ingestor): add yahoo finance source with retries`
-  - [ ] `sources/base.py`, `sources/yahoo.py`
-  - [ ] Unit tests with mocked yfinance: normalisation / EL boundary, error classification, retry count, no retry on permanent errors, empty frame
+- [x] **M3: Yahoo source.** Commit: `feat(ingestor): add yahoo finance source with retries`
+  - [x] `sources/base.py`, `sources/yahoo.py`
+  - [x] Unit tests with mocked yfinance: normalisation / EL boundary, error classification, retry count, no retry on permanent errors, empty frame
 - [ ] **M4: Jobs, scheduler, main.** Commit: `feat(ingestor): schedule ingestion jobs with isolation and heartbeat`
   - [ ] `jobs.py`, `scheduler.py`, `healthcheck.py`, `main.py`
   - [ ] Unit tests: resilience (one symbol fails), exhaustion → failed run, empty run, jobs registered according to flags with `max_instances=1` / `coalesce=True`, heartbeat + healthcheck freshness
@@ -379,6 +379,18 @@ Local (Python 3.12.13 venv, run from `services/ingestor`):
 2. The plain-PostgreSQL test asserted that the `timescaledb` extension was absent, and failed with `assert 1 == 0`. The cause is not a bug in the service: the `timescale/timescaledb` image installs the extension into `template1`, so every database created from it inherits the extension. The honest assertion is that `market_prices` is **not registered as a hypertable**, which is what the test now checks. Recorded in [data-model.md](../data-model.md).
 
 Two further issues found while getting the gate green: ruff's `target-version` was `py312` and proposed PEP 695 syntax that cannot parse on Python 3.11 (fixed by targeting `py311`), and the RETURNING change first broke mypy by assigning a `ReturningInsert` to a variable typed `Insert` (fixed by binding it to its own name).
+
+### 2026-09-17 · M3 Yahoo source
+
+- `ruff check .` / `ruff format --check .` → PASS.
+- `mypy src` → PASS: `Success: no issues found in 8 source files`.
+- `pytest --cov=finstream_ingestor --cov-fail-under=85` → **PASS: `76 passed`, coverage 96.94%**; `yahoo.py` itself is at 100%.
+- `python3.11 -m compileall src tests` → PASS.
+- `pre-commit run --all-files` → PASS in isolated environments.
+
+Behaviour locked down by tests, all with yfinance mocked (GR-7): UTC conversion from the exchange-local index (09:30 New York → 13:30 UTC), `NaN` → `None`, all-NaN rows dropped, row count preserved (no resampling), `auto_adjust=False` so both `close` and `adj_close` are stored, rate limits and network errors retried, missing prices treated as *empty* rather than failure, wrong symbols failing fast without burning the retry budget, and naive timestamps refused rather than silently localised.
+
+**One correction to M2's tooling change:** setting mypy's `python_version` to 3.11 broke as soon as `yahoo.py` imported pandas, because numpy ships stubs using PEP 695 `type` statements that mypy only parses when targeting 3.12+. mypy is back on 3.12; 3.11 compatibility is still enforced where it bites, by ruff (`target-version = "py311"`), by CI's 3.11 unit-test job, and by a `compileall` check.
 
 ## Change log
 
