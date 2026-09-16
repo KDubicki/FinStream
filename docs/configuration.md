@@ -15,6 +15,7 @@ All configuration comes from environment variables (GR-4). Locally they're loade
 | `POSTGRES_USER` | no | `finstream` | db, smoke test | Database superuser created by the DB container |
 | `POSTGRES_PASSWORD` | **yes** | — | db | Password for `POSTGRES_USER`. Compose refuses to start without it |
 | `POSTGRES_DB` | no | `finstream` | db, smoke test | Database name |
+| `POSTGRES_PORT` | no | `5432` | db | Host port Compose publishes on `127.0.0.1` |
 | `DATABASE_URL` | **yes** | — | ingestor | SQLAlchemy URL with the psycopg 3 driver: `postgresql+psycopg://<user>:<password>@db:5432/<db>`. Special characters in the password must be URL-encoded. Stored as a secret and never logged unmasked |
 | `TIMESCALEDB_ENABLED` | no | `true` | ingestor | `true`: create the `timescaledb` extension and the hypertable. `false`: plain PostgreSQL tables |
 
@@ -60,6 +61,17 @@ Default symbol set:
 |---|---|---|---|
 | `RETRY_MAX_ATTEMPTS` | no | `5` | Max attempts per API call or DB operation (including the first). Integer ≥ 1 |
 | `RETRY_MAX_WAIT_SECONDS` | no | `60` | Upper bound of the exponential backoff with jitter between attempts. Integer ≥ 0 |
+
+## Dashboard (`services/dashboard`)
+
+The dashboard reuses `DATABASE_URL` and only ever reads ([ADR-0005](adr/0005-serving-reads-raw-directly.md)).
+
+| Variable | Required | Default | Description / validation |
+|---|---|---|---|
+| `DASHBOARD_PORT` | no | `8501` | Host port Compose publishes on `127.0.0.1` |
+| `DASHBOARD_CACHE_TTL_SECONDS` | no | `60` | How long query results are cached, so moving a widget does not re-query the database. Integer ≥ 0 |
+| `DASHBOARD_DEFAULT_INTERVAL` | no | `1d` | Bar interval selected when the page loads |
+| `DASHBOARD_MAX_ROWS` | no | `5000` | Upper bound on rows pulled into one chart. Integer ≥ 100 |
 
 ## Health & logging
 

@@ -1,0 +1,7 @@
+# Runtime dependencies. Exact pins are mandatory (AGENTS.md GR-8).
+# Versions checked on PyPI 2026-09-17.
+pandas==3.0.5
+psycopg[binary]==3.3.5
+pydantic-settings==2.15.0
+SQLAlchemy==2.0.54
+streamlit==1.64.0

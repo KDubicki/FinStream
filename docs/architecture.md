@@ -10,7 +10,7 @@ FinStream is a set of small, single-purpose services around one PostgreSQL + Tim
 |---|---|---|---|
 | Ingest (raw) | `raw` | FinStream Ingestor | Land source data as received: typed, UTC, deduplicated by natural key |
 | Process | `staging`, `core` *(future)* | Processing services *(future)* | Cleaning, trading calendars, adjustments, resampling, aggregations, indicators |
-| Serve | `marts` / APIs *(future)* | Serving services *(future)* | Analytics, dashboards, APIs |
+| Serve | reads `raw` for now | **FinStream Dashboard** (`services/dashboard`) | Streamlit UI: prices, coverage, ingestion health. Read-only ([ADR-0005](adr/0005-serving-reads-raw-directly.md)) |
 
 A layer only **reads** from the layer before it. The `raw` schema is the contract between the Ingestor and everything downstream, so changes to it follow GR-6 ([data-model.md](data-model.md)).
 

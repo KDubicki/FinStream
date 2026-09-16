@@ -1,0 +1,38 @@
+# Tool configuration only. Dependencies live in requirements*.txt (AGENTS.md GR-8).
+
+[tool.ruff]
+# 3.11 is the support floor: linting against it prevents 3.12-only rewrites (e.g. PEP 695).
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "PTH", "RET", "ARG", "TID", "BLE"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG001", "ARG002"]
+
+[tool.mypy]
+# 3.12 rather than 3.11: numpy ships stubs using PEP 695 `type` statements, which mypy only
+# parses when targeting 3.12+. Runtime compatibility with 3.11 is covered by ruff and CI.
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+mypy_path = "src"
+packages = ["finstream_dashboard"]
+
+[[tool.mypy.overrides]]
+module = ["streamlit.*", "testcontainers.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: needs a running Docker daemon (testcontainers); excluded with -m 'not integration'",
+]
+
+[tool.coverage.run]
+source = ["finstream_dashboard"]
+branch = true

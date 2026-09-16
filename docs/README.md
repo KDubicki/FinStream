@@ -21,6 +21,7 @@ The rulebook for agents and humans is [AGENTS.md](../AGENTS.md).
 | [0002](adr/0002-postgresql-timescaledb-raw-storage.md) | PostgreSQL + TimescaleDB for raw storage | Accepted |
 | [0003](adr/0003-apscheduler-and-tenacity.md) | APScheduler 3.x for scheduling, tenacity for retries | Accepted |
 | [0004](adr/0004-agent-methodology-and-enforcement.md) | Agent methodology with a single rulebook and layered enforcement | Accepted |
+| [0005](adr/0005-serving-reads-raw-directly.md) | The dashboard reads `raw` directly, for now | Accepted |
 
 ## Plans
 
@@ -28,6 +29,7 @@ The rulebook for agents and humans is [AGENTS.md](../AGENTS.md).
 |---|---|---|
 | [0001](plans/0001-ingestor-implementation.md) | FinStream Ingestor implementation | In progress |
 | [0002](plans/0002-ci-pipeline.md) | CI pipeline | Done |
+| [0003](plans/0003-dashboard-service.md) | Streamlit dashboard service | In progress |
 
 ## Research notes
 

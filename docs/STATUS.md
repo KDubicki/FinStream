@@ -17,11 +17,13 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 | Documentation (architecture, data model, configuration) | Done, as a design spec |
 | Plan 0001 + research notes R1–R4 | Done. Every open technical question is answered |
 | Service: config + logging | Done |
-| Service: database layer (schema, idempotent upsert, run records) | Done. 58 tests incl. 16 against a real TimescaleDB, 95.76% coverage |
+| Service: database layer (schema, idempotent upsert, run records) | Done |
+| Service: Yahoo source (fetch, classify, retry) | Done. 76 tests, 96.94% coverage, CI green |
+| Dashboard (Streamlit, read-only) | In progress (plan 0003): queries, app and tests written |
 
 ## What doesn't exist yet
 
-`sources/yahoo.py` (data fetching) · `jobs.py` and `scheduler.py` · `Dockerfile` and `docker-compose.yml`. **No data is being collected yet** — the database can store bars, but nothing fetches them.
+`jobs.py` and `scheduler.py` (M4) · the ingestor's `Dockerfile` (M5). **No data is being collected yet**: the pieces that fetch and store data exist, but nothing runs them on a schedule.
 
 ## Plan 0001 progress
 
@@ -30,8 +32,8 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 | M0 research | ✅ done |
 | M1 scaffold, config, logging | ✅ done |
 | M2 schema + idempotent upsert | ✅ done |
-| M3 Yahoo source + retries | ⬜ next |
-| M4 jobs, scheduler, main | ⬜ |
+| M3 Yahoo source + retries | ✅ done |
+| M4 jobs, scheduler, main | ⬜ next |
 | M5 Docker + Compose | ⬜ |
 | M6 review + docs | ⬜ |
 
@@ -48,6 +50,6 @@ None. Docker Desktop is running, so the TimescaleDB integration tests execute lo
 
 ## Next step
 
-M3: the Yahoo Finance source — fetching, error classification and retries, tested against mocked yfinance responses.
+M4: jobs, scheduler and `main` — the part that actually runs ingestion on a schedule, so the dashboard has data to show.
 
 More detail: [plan 0001](plans/0001-ingestor-implementation.md) · [docs index](README.md) · [rules](../AGENTS.md)
