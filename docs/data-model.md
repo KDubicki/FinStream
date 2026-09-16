@@ -48,7 +48,8 @@ SELECT create_hypertable('raw.market_prices', by_range('ts'),
 - **`migrate_data => TRUE`:** lets a database that started with `TIMESCALEDB_ENABLED=false` be converted later. On an existing hypertable, `if_not_exists` makes the call a no-op.
 - **Signature (verified 2026-09-16** against TimescaleDB's `sql/ddl_api.sql`**):** the generalised form is `create_hypertable(relation REGCLASS, dimension _timescaledb_internal.dimension_info, create_default_indexes BOOLEAN = TRUE, if_not_exists BOOLEAN = FALSE, migrate_data BOOLEAN = FALSE)`, and the dimension builder is `by_range(column_name NAME, partition_interval ANYELEMENT = NULL, partition_func regproc = NULL)`. So the call above is valid on the pinned 2.30 image.
 - **Newer alternative:** TimescaleDB also supports declaring a hypertable inline, `CREATE TABLE … WITH (tsdb.hypertable, …)`, and the docs now call `create_hypertable()` a legacy function kept for existing tables. We deliberately keep `create_hypertable()`: it separates "create the table" from "make it a hypertable", which is what lets the same DDL run with `TIMESCALEDB_ENABLED=false`.
-- **Plain PostgreSQL mode** (`TIMESCALEDB_ENABLED=false`) uses the same tables without the extension or hypertable. Queries are unaffected.
+- **Plain PostgreSQL mode** (`TIMESCALEDB_ENABLED=false`) uses the same tables without the hypertable. Queries are unaffected.
+- **Careful when checking that mode:** the `timescale/timescaledb` image installs the extension into `template1`, so every database created from it already reports `timescaledb` in `pg_extension`, whether or not the service enabled it (verified 2026-09-17 while writing the M2 tests). The honest check for plain mode is therefore that `market_prices` is **not registered in `timescaledb_information.hypertables`**, not that the extension is missing.
 
 ### Column semantics
 

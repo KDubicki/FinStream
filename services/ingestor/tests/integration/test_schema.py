@@ -44,13 +44,20 @@ def test_runs_table_rejects_an_unknown_status(engine: Engine) -> None:
         )
 
 
-def test_plain_postgresql_mode_creates_tables_without_timescaledb(plain_engine: Engine) -> None:
-    """TIMESCALEDB_ENABLED=false must still produce a usable schema."""
+def test_plain_postgresql_mode_creates_no_hypertable(plain_engine: Engine) -> None:
+    """TIMESCALEDB_ENABLED=false must still produce a usable schema, minus the hypertable.
+
+    The assertion is deliberately about the hypertable rather than the extension: the
+    timescale/timescaledb image installs the extension into template1, so every database created
+    from it inherits `timescaledb` whether or not the service asked for it.
+    """
     inspector = sa.inspect(plain_engine)
     assert set(inspector.get_table_names(schema=SCHEMA)) >= {"market_prices", "ingestion_runs"}
 
     with plain_engine.connect() as conn:
-        extensions = conn.execute(
-            sa.text("SELECT count(*) FROM pg_extension WHERE extname = 'timescaledb'")
-        ).scalar_one()
-    assert extensions == 0
+        assert conn.execute(IS_HYPERTABLE).scalar_one() == 0, (
+            "with TimescaleDB disabled the table must stay a plain PostgreSQL table"
+        )
+
+        rows = conn.execute(sa.text(f"SELECT count(*) FROM {SCHEMA}.market_prices")).scalar_one()
+    assert rows == 0

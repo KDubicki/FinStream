@@ -135,18 +135,20 @@ def upsert_bars(
         excluded = statement.excluded
         current = sa.tuple_(*(market_prices.c[name] for name in PRICE_VALUE_COLUMNS))
         incoming = sa.tuple_(*(excluded[name] for name in PRICE_VALUE_COLUMNS))
-        statement = statement.on_conflict_do_update(
+        # Count with RETURNING rather than rowcount: the driver reports -1 for this statement,
+        # and rows the IS DISTINCT FROM guard skips must not be counted as written.
+        upsert = statement.on_conflict_do_update(
             index_elements=list(PRICE_KEY_COLUMNS),
             set_={
                 **{name: excluded[name] for name in PRICE_VALUE_COLUMNS},
                 "updated_at": sa.func.now(),
             },
             where=current.is_distinct_from(incoming),
-        )
+        ).returning(market_prices.c.ts)
 
-        def execute(statement: sa.Executable = statement) -> int:
+        def execute(statement: sa.Executable = upsert) -> int:
             with engine.begin() as conn:
-                return conn.execute(statement).rowcount
+                return len(conn.execute(statement).all())
 
         affected += _run(retryer, execute)
 

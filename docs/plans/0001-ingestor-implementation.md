@@ -369,7 +369,16 @@ Local (Python 3.12.13 venv, run from `services/ingestor`):
 - Unit-only coverage is 78%: `db.py` is covered by the integration tests, so the 85% gate is evaluated by CI over the whole suite.
 - **`pre-commit run mypy --all-files` initially FAILED** where the venv's mypy passed: the hook runs mypy in an isolated environment and `tenacity` was missing from its `additional_dependencies`, which also degraded a return type to `Any`. Adding `tenacity==9.1.4` fixed both errors. Lesson recorded: verifying a hook means running the hook, not the equivalent local command.
 
-- **Integration tests → NOT RUN locally:** the Docker daemon is still unreachable here. They run in CI's `integration` job against the pinned `timescale/timescaledb:2.30.0-pg16` image; the result is recorded below.
+- **Integration tests → PASS.** Docker Desktop was started, so all 16 ran locally against `timescale/timescaledb:2.30.0-pg16`.
+- `pytest --cov=finstream_ingestor --cov-fail-under=85` → **PASS: `58 passed`, coverage 95.76%** on `src/` (the first time the real Definition-of-Done gate could run on this machine).
+- `pre-commit run --all-files` → PASS, every hook in its isolated environment.
+
+**Two real defects the integration tests caught** (both invisible to unit tests, which is exactly why GR-7 forbids mocking the database):
+
+1. `upsert_bars` returned `-1`, and `-3` for a three-batch write, because it reported `CursorResult.rowcount`, which this driver leaves at `-1` for this statement. It now counts rows via `RETURNING`, which also has the right semantics: rows skipped by the `IS DISTINCT FROM` guard are not counted as written, so a repeated run correctly reports `0`.
+2. The plain-PostgreSQL test asserted that the `timescaledb` extension was absent, and failed with `assert 1 == 0`. The cause is not a bug in the service: the `timescale/timescaledb` image installs the extension into `template1`, so every database created from it inherits the extension. The honest assertion is that `market_prices` is **not registered as a hypertable**, which is what the test now checks. Recorded in [data-model.md](../data-model.md).
+
+Two further issues found while getting the gate green: ruff's `target-version` was `py312` and proposed PEP 695 syntax that cannot parse on Python 3.11 (fixed by targeting `py311`), and the RETURNING change first broke mypy by assigning a `ReturningInsert` to a variable typed `Insert` (fixed by binding it to its own name).
 
 ## Change log
 

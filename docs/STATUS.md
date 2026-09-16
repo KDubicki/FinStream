@@ -1,6 +1,6 @@
 # Project status
 
-**Updated:** 2026-09-17 · **Branch:** `main` (work lands here; the plan 0001 branch was merged and deleted)
+**Updated:** 2026-09-17 (M2 done) · **Branch:** `main` (work lands here; the plan 0001 branch was merged and deleted)
 
 ## In one sentence
 
@@ -16,11 +16,12 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 | CI (GitHub Actions) | Done (plan 0002): lint, types, tests, secret scan, weekly audit. First runs green |
 | Documentation (architecture, data model, configuration) | Done, as a design spec |
 | Plan 0001 + research notes R1–R4 | Done. Every open technical question is answered |
-| Service: config + logging | Done. 33 tests, 100% coverage on `src/` |
+| Service: config + logging | Done |
+| Service: database layer (schema, idempotent upsert, run records) | Done. 58 tests incl. 16 against a real TimescaleDB, 95.76% coverage |
 
 ## What doesn't exist yet
 
-`schema.py` and `db.py` (tables + upsert) · `sources/yahoo.py` (data fetching) · `jobs.py` and `scheduler.py` · `Dockerfile` and `docker-compose.yml`. **No data is being collected yet.**
+`sources/yahoo.py` (data fetching) · `jobs.py` and `scheduler.py` · `Dockerfile` and `docker-compose.yml`. **No data is being collected yet** — the database can store bars, but nothing fetches them.
 
 ## Plan 0001 progress
 
@@ -28,8 +29,8 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 |---|---|
 | M0 research | ✅ done |
 | M1 scaffold, config, logging | ✅ done |
-| M2 schema + idempotent upsert | ⬜ next, **blocked** |
-| M3 Yahoo source + retries | ⬜ |
+| M2 schema + idempotent upsert | ✅ done |
+| M3 Yahoo source + retries | ⬜ next |
 | M4 jobs, scheduler, main | ⬜ |
 | M5 Docker + Compose | ⬜ |
 | M6 review + docs | ⬜ |
@@ -43,10 +44,10 @@ The rules, documentation and the approved plan are in place; the Ingestor servic
 
 ## Blocker
 
-**Docker isn't running.** M2's tests require a real TimescaleDB in a container. Start Docker Desktop, and M2 can proceed.
+None. Docker Desktop is running, so the TimescaleDB integration tests execute locally as well as in CI.
 
 ## Next step
 
-Start Docker → implement M2 (schema + upsert + integration tests for idempotency).
+M3: the Yahoo Finance source — fetching, error classification and retries, tested against mocked yfinance responses.
 
 More detail: [plan 0001](plans/0001-ingestor-implementation.md) · [docs index](README.md) · [rules](../AGENTS.md)
