@@ -262,7 +262,7 @@ A PyPI snapshot from 2026-09-15 was the starting point. **Final pins are in the 
 
 Each milestone is one Conventional Commit (code, tests and doc/plan updates together), made once its gate is green.
 
-- [ ] **M0: Research.** R1–R4 notes in `docs/research/`; ADR-0003 accepted or superseded; this plan updated with findings (a material design change sends it back for approval). Commit: `docs(research): …`
+- [x] **M0: Research.** R1–R4 notes in `docs/research/`; ADR-0003 accepted or superseded; this plan updated with findings (a material design change sends it back for approval). Commit: `docs(research): …`
 - [x] **M1: Scaffold, config, logging.** Commit: `feat(ingestor): scaffold service with config and logging`
   - [x] `services/ingestor/` layout, `pyproject.toml`, `requirements*.txt`, `.dockerignore`
   - [x] `config.py` (all variables from configuration.md, with validation) and `logging_setup.py`

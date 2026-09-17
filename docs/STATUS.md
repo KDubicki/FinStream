@@ -22,6 +22,7 @@ The platform runs end to end: the Ingestor collects 23 instruments from Yahoo on
 | Service: jobs, scheduler, entrypoint, healthcheck | Done. 107 tests, 95.95% coverage |
 | Dashboard (Streamlit, read-only) | Done (plans 0003, 0004). Named instruments grouped by asset class, charts that follow the data |
 | Instrument coverage | 23 symbols across metals, energy, indices, ETFs, FX, crypto and rates. 50 series stored, all runs successful |
+| Scheduling resilience | Missed runs are caught up immediately after a stall, e.g. a suspended laptop (plan 0005) |
 
 ## What doesn't exist yet
 

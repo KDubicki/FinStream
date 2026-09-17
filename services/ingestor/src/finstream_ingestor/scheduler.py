@@ -53,6 +53,18 @@ def job_defaults(settings: Settings) -> dict[str, object]:
     }
 
 
+def ingestion_misfire_grace(settings: Settings) -> int | None:
+    """How late an ingestion run may be and still execute.
+
+    `None` is APScheduler's "run however late it is". That is what makes a suspended host
+    recover: on wake the coalesced backlog runs immediately instead of being discarded as a
+    misfire and leaving the data stale until the next interval (plan 0005).
+    """
+    if settings.scheduler_catch_up_missed_runs:
+        return None
+    return settings.scheduler_misfire_grace_seconds
+
+
 def touch_heartbeat(path: Path) -> None:
     """Prove the scheduler is still running; the Docker healthcheck reads this file."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -86,6 +98,7 @@ def build_scheduler(
     scheduler.add_listener(on_job_problem, EVENT_JOB_ERROR | EVENT_JOB_MISSED)
 
     now = datetime.now(UTC)
+    ingestion_grace = ingestion_misfire_grace(settings)
 
     def ingestion(interval: str, period: str, job: str) -> partial[JobSummary]:
         return partial(
@@ -104,6 +117,7 @@ def build_scheduler(
             ingestion(settings.intraday_interval, settings.intraday_lookback, INTRADAY_JOB_ID),
             IntervalTrigger(minutes=settings.intraday_every_minutes),
             id=INTRADAY_JOB_ID,
+            misfire_grace_time=ingestion_grace,
             name=f"intraday {settings.intraday_interval} bars",
             next_run_time=now,  # don't wait a whole interval for the first run
         )
@@ -115,6 +129,7 @@ def build_scheduler(
             # it as Sunday, so "1-5" would silently mean Tue-Sat. Settings rejects numeric values.
             CronTrigger.from_crontab(settings.daily_cron, timezone=settings.scheduler_timezone),
             id=DAILY_JOB_ID,
+            misfire_grace_time=ingestion_grace,
             name="daily bars after the close",
             next_run_time=now,  # catch up immediately rather than waiting for the next close
         )
@@ -124,6 +139,7 @@ def build_scheduler(
             ingestion(DAILY_INTERVAL, settings.backfill_period, BACKFILL_JOB_ID),
             DateTrigger(run_date=now),
             id=BACKFILL_JOB_ID,
+            misfire_grace_time=ingestion_grace,
             name=f"one-off backfill of {settings.backfill_period}",
         )
 

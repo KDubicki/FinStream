@@ -118,7 +118,8 @@ sequenceDiagram
 - **Daily:** on `DAILY_CRON` in `SCHEDULER_TIMEZONE` (by default after the US market close), fetch `1d` bars for the last `DAILY_LOOKBACK`.
 - **Backfill (optional):** once at startup, fetch `1d` bars for `BACKFILL_PERIOD`.
 - **Lookback windows deliberately overlap previous runs.** Missed runs (downtime, failures) heal automatically, and revised bars (the still-forming latest bar, adjusted closes) get updated. Idempotent upserts (GR-2) make the overlap safe.
-- **Job defaults:** `max_instances=1` (a job never overlaps itself), `coalesce=True` (a backlog of missed runs collapses into one run), `misfire_grace_time = SCHEDULER_MISFIRE_GRACE_SECONDS`. Every job also runs once at startup.
+- **Job defaults:** `max_instances=1` (a job never overlaps itself) and `coalesce=True` (a backlog of missed runs collapses into one run). Every job also runs once at startup.
+- **Catching up after a stall:** ingestion jobs are registered with no misfire grace by default (`SCHEDULER_CATCH_UP_MISSED_RUNS`), so a suspended host or a lost network fetches immediately on recovery instead of waiting for the next interval. The heartbeat keeps `SCHEDULER_MISFIRE_GRACE_SECONDS`, because catching up on heartbeats would hide the very stall the healthcheck exists to reveal ([plan 0005](plans/0005-catch-up-missed-runs.md)).
 
 All values are configured through the environment, see [configuration.md](configuration.md).
 
@@ -134,6 +135,7 @@ All values are configured through the environment, see [configuration.md](config
 | DB unreachable at startup | `wait_for_db` retries | Still down → exit non-zero → Compose `restart: unless-stopped` |
 | DB error during a write | `OperationalError` retried | Exhausted → run `failed`; the next run re-upserts idempotently |
 | Job runs longer than its interval | `max_instances=1` skips the overlapping start; `coalesce` | Next trigger proceeds normally |
+| Host suspended, or the process stalls for hours | On wake the missed runs are coalesced into a single run that executes immediately, because ingestion jobs carry no misfire grace (`SCHEDULER_CATCH_UP_MISSED_RUNS`) | The overlapping lookback refetches the gap and idempotent upserts absorb the repeat (GR-2). Observed 2026-09-17: before this, a suspended laptop left data 20 hours stale while every run still reported `success` |
 | Container stopped (SIGTERM) | Scheduler shuts down; an in-flight upsert transaction either commits or rolls back atomically | Re-running after restart is safe (GR-2) |
 | Process hangs | Heartbeat goes stale → `HEALTHCHECK` reports unhealthy | Visible in `docker compose ps`; restart |
 | Yahoo API change / yfinance breaks | Persistent `failed` runs in `raw.ingestion_runs` | Upgrade via research → plan; alternative sources (plan 0002) |

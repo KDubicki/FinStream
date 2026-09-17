@@ -17,6 +17,7 @@ from finstream_ingestor.scheduler import (
     INTRADAY_JOB_ID,
     RUN_AT_STARTUP,
     build_scheduler,
+    ingestion_misfire_grace,
     job_defaults,
     touch_heartbeat,
 )
@@ -134,3 +135,47 @@ def test_every_recurring_job_also_runs_at_startup(make_settings) -> None:
     scheduled = {job.id: job.next_run_time for job in scheduler.get_jobs()}
     for job_id in RUN_AT_STARTUP:
         assert scheduled[job_id] is not None, f"{job_id} must run once at startup"
+
+
+def test_catch_up_is_on_by_default(make_settings) -> None:
+    """A suspended host must not leave data stale until the next interval (plan 0005)."""
+    assert ingestion_misfire_grace(make_settings()) is None
+
+
+def test_catch_up_can_be_turned_off(make_settings) -> None:
+    settings = make_settings(
+        scheduler_catch_up_missed_runs=False, scheduler_misfire_grace_seconds=300
+    )
+    assert ingestion_misfire_grace(settings) == 300
+
+
+def test_ingestion_jobs_run_however_late_they_are(make_settings) -> None:
+    scheduler = build(make_settings(backfill_on_start=True))
+    # A pending heartbeat job carries no explicit grace, so read defensively.
+    graces = {job.id: getattr(job, "misfire_grace_time", "unset") for job in scheduler.get_jobs()}
+    for job_id in (INTRADAY_JOB_ID, DAILY_JOB_ID, BACKFILL_JOB_ID):
+        assert graces[job_id] is None, f"{job_id} must catch up after a stall"
+
+
+def test_the_heartbeat_does_not_catch_up(make_settings) -> None:
+    """Catching up on heartbeats would hide exactly the stall the healthcheck exists to show."""
+    scheduler = build(make_settings(scheduler_misfire_grace_seconds=300))
+    heartbeat = next(job for job in scheduler.get_jobs() if job.id == HEARTBEAT_JOB_ID)
+    assert getattr(heartbeat, "misfire_grace_time", "unset") in ("unset", 300)
+
+
+def test_opting_out_restores_the_previous_behaviour(make_settings) -> None:
+    settings = make_settings(
+        scheduler_catch_up_missed_runs=False, scheduler_misfire_grace_seconds=120
+    )
+    scheduler = build(settings)
+    # A pending heartbeat job carries no explicit grace, so read defensively.
+    graces = {job.id: getattr(job, "misfire_grace_time", "unset") for job in scheduler.get_jobs()}
+    assert graces[INTRADAY_JOB_ID] == 120
+
+
+def test_a_backlog_still_produces_one_run(make_settings) -> None:
+    """Catch-up must not mean one run per missed interval."""
+    defaults = job_defaults(make_settings())
+    assert defaults["coalesce"] is True
+    assert defaults["max_instances"] == 1

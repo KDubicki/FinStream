@@ -21,6 +21,10 @@ def test_defaults_match_documentation(make_settings: Callable[..., Settings]) ->
     assert settings.log_format == "json"
 
 
+def test_catch_up_defaults_to_on(make_settings: Callable[..., Settings]) -> None:
+    assert make_settings().scheduler_catch_up_missed_runs is True
+
+
 def test_missing_database_url_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("DATABASE_URL", raising=False)
     with pytest.raises(ValidationError) as excinfo:

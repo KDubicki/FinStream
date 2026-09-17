@@ -48,7 +48,8 @@ intraday bar; they are stored faithfully and the dashboard falls back to the las
 | Variable | Required | Default | Description / validation |
 |---|---|---|---|
 | `SCHEDULER_TIMEZONE` | no | `UTC` | IANA timezone for cron triggers. UTC avoids DST surprises |
-| `SCHEDULER_MISFIRE_GRACE_SECONDS` | no | `300` | How late a trigger may still run (APScheduler `misfire_grace_time`). Positive integer |
+| `SCHEDULER_MISFIRE_GRACE_SECONDS` | no | `300` | How late a trigger may still run (APScheduler `misfire_grace_time`). Positive integer. Applies to the heartbeat, and to ingestion when catch-up is off |
+| `SCHEDULER_CATCH_UP_MISSED_RUNS` | no | `true` | `true`: ingestion jobs run however late they are, so a suspended host or a lost network catches up immediately instead of waiting for the next interval. `coalesce` still collapses a backlog into one run, and upserts make the repeat harmless. `false` restores the grace period above ([plan 0005](plans/0005-catch-up-missed-runs.md)) |
 | `INTRADAY_ENABLED` | no | `true` | Enable the intraday job |
 | `INTRADAY_INTERVAL` | no | `1h` | Bar interval requested from Yahoo. Must be a supported yfinance interval |
 | `INTRADAY_EVERY_MINUTES` | no | `60` | How often the intraday job runs. Positive integer |

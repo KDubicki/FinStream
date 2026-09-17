@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # --- Schedules ---
     scheduler_timezone: str = "UTC"
     scheduler_misfire_grace_seconds: int = Field(default=300, ge=1)
+    # After a long stall (a suspended laptop, a lost network) the ingestion jobs should catch up
+    # at once rather than wait for the next interval. With coalesce=True a backlog still becomes
+    # a single run, and idempotent upserts make repeating a window harmless (GR-2).
+    scheduler_catch_up_missed_runs: bool = True
     intraday_enabled: bool = True
     intraday_interval: str = "1h"
     intraday_every_minutes: int = Field(default=60, ge=1)
