@@ -1,6 +1,6 @@
 # Plan 0001: FinStream Ingestor implementation
 
-- **Status:** In progress <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
+- **Status:** Done <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
 - **Created:** 2026-09-15
 - **Branch:** feat/0001-ingestor
 - **Related:** [ADR-0001](../adr/0001-ingestor-is-extract-load-only.md), [ADR-0002](../adr/0002-postgresql-timescaledb-raw-storage.md), [ADR-0003](../adr/0003-apscheduler-and-tenacity.md), [architecture](../architecture.md), [data model](../data-model.md), [configuration](../configuration.md)
@@ -286,9 +286,9 @@ Each milestone is one Conventional Commit (code, tests and doc/plan updates toge
   - [x] `Dockerfile`, and add the `ingestor` service to the existing root `docker-compose.yml` (created with `db` + `dashboard` by plan 0003)
   - [x] Re-enable the Dependabot `docker` ecosystem in `.github/dependabot.yml` (removed until a Dockerfile exists)
   - [x] Smoke test per the `test` skill (the user provides `.env`); `docker compose restart ingestor` → no duplicates
-- [ ] **M6: Review and document.** Commit: `docs: finalize ingestor documentation` + `docs(plans): mark plan 0001 done`
-  - [ ] Golden-rules review of the full diff; Definition of Done
-  - [ ] README status and quickstart; architecture, data model and configuration match the implementation; `docs/README.md` indexes updated
+- [x] **M6: Review and document.** Commit: `docs: finalize ingestor documentation` + `docs(plans): mark plan 0001 done`
+  - [x] Golden-rules review of the full diff; Definition of Done
+  - [x] README status and quickstart; architecture, data model and configuration match the implementation; `docs/README.md` indexes updated
 
 ## Test plan
 
@@ -334,12 +334,12 @@ None.
 
 ## Definition of Done
 
-- [ ] `ruff check`, `ruff format --check`, `mypy src` clean
-- [ ] `pytest` green, coverage ≥ 85% on `src/`
-- [ ] Idempotency and resilience tests exist for new or changed writers/jobs
-- [ ] `docker compose up` smoke test passed
-- [ ] `.env.example`, `docs/`, ADRs and README updated
-- [ ] All tasks ticked, Verification log filled in, Status `Done`
+- [x] `ruff check`, `ruff format --check`, `mypy src` clean
+- [x] `pytest` green, coverage ≥ 85% on `src/`
+- [x] Idempotency and resilience tests exist for new or changed writers/jobs
+- [x] `docker compose up` smoke test passed
+- [x] `.env.example`, `docs/`, ADRs and README updated
+- [x] All tasks ticked, Verification log filled in, Status `Done`
 
 ## Verification log
 
@@ -422,6 +422,52 @@ Jobs behave as GR-3 requires: a failing symbol is recorded and the loop continue
 
 **A design gap the smoke test exposed.** [ADR-0003](../adr/0003-apscheduler-and-tenacity.md) accepts an in-memory job store *because* every job also runs at startup, and `architecture.md` says the same. The implementation only did that for the intraday and heartbeat jobs: the **daily job had no `next_run_time`**, so a restart at 09:00 would have meant no daily bars until 22:30 that evening. The daily job now runs at startup too, `RUN_AT_STARTUP` names the jobs this applies to, and a test asserts it.
 
+### 2026-09-17 · M6 review and close
+
+**Golden-rules review over the whole history** (25 commits), checked mechanically across both
+services rather than by reading alone:
+
+| Rule | Result |
+|---|---|
+| GR-1 EL only | No `resample`, `rolling`, `fillna`, `interpolate`, `pct_change` or `diff` anywhere in the ingestor's `src/` |
+| GR-2 Idempotent writes | Market data is written only through `ON CONFLICT DO UPDATE`. One finding, resolved below |
+| GR-3 Daemon survives jobs | Exactly two broad `except Exception` clauses, both in `jobs.py`: the job boundary and the bookkeeping fallback, each with a `noqa` explaining why |
+| GR-4 Config from env | No URLs or endpoints hardcoded in `src/`; all 21 ingestor and 5 dashboard settings documented |
+| GR-5 Secrets | No credential-shaped literals in source; `.env` is untracked (`git ls-files` empty); gitleaks green |
+| GR-6 Schema | `CREATE EXTENSION IF NOT EXISTS`, `create_hypertable(… if_not_exists => TRUE)`, `CreateSchema(if_not_exists=True)`, `create_all(checkfirst=True)` |
+| GR-7 Tests | Both services have an autouse no-network guard; database behaviour is tested against a real TimescaleDB container |
+| GR-8 Dependencies | 25 pins across four requirements files, every one exact (`==`) |
+| GR-9 Verify | Every milestone in this plan carries real command output; library behaviour was probed, not assumed (R1–R4, the APScheduler cron probe) |
+| GR-10 Scope | Out-of-scope findings went to Follow-ups; the one scope move (PriceBar arriving in M2) is recorded in M2 |
+| GR-11 Docs | 148 relative links resolve; `.env.example` ↔ `configuration.md` parity 29/29; ADR statuses match the index |
+| GR-12 Git | 25 of 25 commit subjects match Conventional Commits |
+
+**The one finding, and its resolution.** `ingestion_runs` is written with a plain `INSERT`, which
+looks like a GR-2 violation. It is not: that table is an append-only event log where each attempt
+is a distinct row keyed by a generated `run_id`, and the only update closes a row by that key.
+GR-2 protects against duplicating a *natural* key in a data table. The distinction was correct in
+the code but never written down, so `data-model.md` now states it explicitly.
+
+**Documentation checked against the running system, not against itself:**
+
+- Every `Settings` field in both services appears in `configuration.md` (21 + 5, none missing).
+- The columns declared in `schema.py` match the **live database** exactly, in both tables.
+- Every column documented in `data-model.md` exists live, and nothing live is undocumented.
+
+**Full gate:** ingestor `115 passed`, coverage **96.02%**; dashboard `52 passed`, coverage
+**90.94%**; ruff, ruff-format and mypy clean in both.
+
+**Mandatory test types all present:** idempotency (`test_upsert_is_idempotent`), revision
+(`test_upsert_updates_a_revised_bar`), schema re-entrancy (`test_init_schema_is_reentrant`),
+retry and exhaustion (`test_retryer_*`, `test_retries_are_exhausted_*`), resilience
+(`test_a_failing_symbol_is_isolated_and_recorded`, `test_the_job_never_raises`), empty results
+(`test_no_bars_is_recorded_as_empty_not_failed`), and config fail-fast.
+
+**Smoke, on the live stack:** all three services healthy; 25 symbols and 2,052 rows stored;
+**179 ingestion runs, every one `success`**; dashboard `GET /_stcore/health` → 200.
+
 ## Change log
 
 - 2026-09-15: created (Draft) during repository bootstrap.
+- 2026-09-16: approved; M0–M2 delivered.
+- 2026-09-17: M3–M5 delivered, M6 review passed, plan closed.

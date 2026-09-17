@@ -91,6 +91,7 @@ CREATE INDEX IF NOT EXISTS ingestion_runs_symbol_idx
 ```
 
 - **Row lifecycle:** a row is inserted with `running` at start, then updated (by `run_id`) to its final status.
+- **Why this table uses a plain `INSERT`, and GR-2 still holds:** GR-2 requires upserts on *data* tables, where a repeated job must not change the row count. `ingestion_runs` is an append-only **event log**: every attempt is a distinct event with its own generated `run_id`, so two runs of the same job legitimately produce two rows, and the only update is the one that closes a row by its primary key. No natural key is being duplicated, which is what GR-2 protects against.
 - **Stuck runs:** a row left in `running` means the process died mid-run.
 - **Error text:** `error` must never contain credentials (GR-5).
 

@@ -27,7 +27,7 @@ The rulebook for agents and humans is [AGENTS.md](../AGENTS.md).
 
 | Plan | Title | Status |
 |---|---|---|
-| [0001](plans/0001-ingestor-implementation.md) | FinStream Ingestor implementation | In progress |
+| [0001](plans/0001-ingestor-implementation.md) | FinStream Ingestor implementation | Done |
 | [0002](plans/0002-ci-pipeline.md) | CI pipeline | Done |
 | [0003](plans/0003-dashboard-service.md) | Streamlit dashboard service | Done |
 | [0004](plans/0004-dashboard-readability-and-coverage.md) | Readable charts and broader instrument coverage | Done |

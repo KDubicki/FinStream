@@ -4,7 +4,7 @@
 
 ## In one sentence
 
-The platform runs end to end: the Ingestor collects 23 instruments from Yahoo on a schedule into TimescaleDB, and a read-only Streamlit dashboard shows them. Only the final review (plan 0001 M6) is left.
+The platform runs end to end and every plan is closed: the Ingestor collects 23 instruments from Yahoo on a schedule into TimescaleDB, and a read-only Streamlit dashboard shows them. The final golden-rules review passed on 2026-09-17.
 
 ## What already works
 
@@ -38,7 +38,7 @@ Nothing essential. M6 remains: the final golden-rules review and closing plan 00
 | M3 Yahoo source + retries | ✅ done |
 | M4 jobs, scheduler, main | ✅ done |
 | M5 Docker + Compose | ✅ done |
-| M6 review + docs | ⬜ next |
+| M6 review + docs | ✅ done |
 
 ## Key decisions already made
 
@@ -57,6 +57,6 @@ None.
 
 ## Next step
 
-M6: the golden-rules review over the whole diff, a docs pass, and closing plan 0001.
+Nothing is outstanding: plan 0001 is closed and all five plans are Done. What is left is optional, and recorded as follow-ups in the plans — a staleness indicator on the dashboard, more data sources (plan 0002 in the follow-up list), `raw.instruments` metadata, Alembic once the schema changes non-additively, metrics and alerting, and versioning the hook test-suite in the repo.
 
 More detail: [plan 0001](plans/0001-ingestor-implementation.md) · [docs index](README.md) · [rules](../AGENTS.md)
