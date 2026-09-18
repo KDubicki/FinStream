@@ -32,6 +32,7 @@ The rulebook for agents and humans is [AGENTS.md](../AGENTS.md).
 | [0003](plans/0003-dashboard-service.md) | Streamlit dashboard service | Done |
 | [0004](plans/0004-dashboard-readability-and-coverage.md) | Readable charts and broader instrument coverage | Done |
 | [0005](plans/0005-catch-up-missed-runs.md) | Catch up missed ingestion runs | Done |
+| [0006](plans/0006-instrument-comparison.md) | Percentage comparison of instruments on one chart | In progress |
 
 ## Research notes
 
