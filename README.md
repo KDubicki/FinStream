@@ -23,7 +23,7 @@ flowchart LR
 | Service | Role | Status |
 |---|---|---|
 | **FinStream Ingestor** (`services/ingestor`) | Extract & Load only. On a schedule, fetches raw OHLCV bars from Yahoo Finance and upserts them into `raw.*` tables. Retries transient failures and never crashes on one. | Planned: [plan 0001](docs/plans/0001-ingestor-implementation.md) |
-| **FinStream Dashboard** (`services/dashboard`) | Read-only Streamlit UI over the raw data: prices, coverage and ingestion health ([ADR-0005](docs/adr/0005-serving-reads-raw-directly.md)) | [plan 0003](docs/plans/0003-dashboard-service.md) |
+| **FinStream Dashboard** (`services/dashboard`) | Read-only Streamlit UI over the raw data: prices, percentage comparison of 2–5 instruments, coverage and ingestion health ([ADR-0005](docs/adr/0005-serving-reads-raw-directly.md)) | [plan 0003](docs/plans/0003-dashboard-service.md), [plan 0006](docs/plans/0006-instrument-comparison.md) |
 | Processing services | Transformations, aggregations and indicators, i.e. everything the Ingestor deliberately does **not** do | Future |
 
 Details: [docs/architecture.md](docs/architecture.md) · [docs/data-model.md](docs/data-model.md) · [docs/configuration.md](docs/configuration.md)

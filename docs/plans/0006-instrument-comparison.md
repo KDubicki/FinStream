@@ -1,6 +1,6 @@
 # Plan 0006: percentage comparison of instruments on one chart
 
-- **Status:** In progress <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
+- **Status:** Done <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
 - **Created:** 2026-09-19
 - **Branch:** `main`
 - **Related:** [plan 0003](0003-dashboard-service.md), [plan 0004](0004-dashboard-readability-and-coverage.md), [ADR-0001](../adr/0001-ingestor-is-extract-load-only.md), [ADR-0005](../adr/0005-serving-reads-raw-directly.md)
@@ -143,7 +143,7 @@ with its tests and doc updates.
       timestamps and the empty cases. No UI yet.
 - [x] **M2: Charts and tab** — `percent_change_chart()` and `ratio_chart()` in `charts.py`,
       `render_compare()` and the fourth tab in `app.py`, with chart-spec and render-guard tests.
-- [ ] **M3: Verify and document** — full gates, `docker compose up` smoke test against live data
+- [x] **M3: Verify and document** — full gates, `docker compose up` smoke test against live data
       with a real gold-vs-silver reading, README and `docs/architecture.md` updated, plan closed.
 
 ## Test plan
@@ -184,18 +184,26 @@ the "change over range" metric the Prices tab already computes.
 
 - `charts.py` imports `altair` directly, but Altair is only a transitive dependency of Streamlit and
   is not pinned in `requirements.txt`. That is a pre-existing GR-8 gap from plan 0004, not created
-  here; it deserves its own small change rather than a silent fix.
+  here; it deserves its own small change rather than a silent fix. Altair 6.3.0 is what the current
+  image resolves to.
+- **Hourly bars do not line up across trading calendars.** On live data `BTC-USD` and `^GSPC` share
+  *zero* hourly timestamps: crypto bars sit on the hour, index bars follow the 13:30 UTC open. The
+  percentage chart handles this fine, but the ratio panel can only say so. Aligning to a trading
+  calendar is processing-layer work, not the dashboard's.
+- A short-history instrument pulls the shared baseline forward for everyone in the selection
+  (`^GSPC` moved a five-instrument comparison to 2026-09-12). That is the fair reading and the page
+  states the baseline, but a "drop the shortest series" affordance might be worth having.
 
 ## Definition of Done
 
-- [ ] `ruff check`, `ruff format --check`, `mypy src` clean
-- [ ] `pytest` green, coverage ≥ 85% on `src/`
-- [ ] Idempotency and resilience tests exist for new or changed writers/jobs — *n/a: this service
-      never writes (`ALL_STATEMENTS` is SELECT-only and tested as such)*
-- [ ] `docker compose up` smoke test passed, with the live gold-vs-silver reading recorded
-- [ ] `docs/` and README updated; `.env.example` and `docs/configuration.md` unchanged **by design**
+- [x] `ruff check`, `ruff format --check`, `mypy src` clean
+- [x] `pytest` green, coverage ≥ 85% on `src/` — 97 passed, 94.34%
+- [x] Idempotency and resilience tests exist for new or changed writers/jobs — *n/a: this service
+      never writes (`ALL_STATEMENTS` is SELECT-only and tested as such), and this change adds no SQL*
+- [x] `docker compose up` smoke test passed, with the live gold-vs-silver reading recorded
+- [x] `docs/` and README updated; `.env.example` and `docs/configuration.md` unchanged **by design**
       (no new variables — see *Design → Configuration*)
-- [ ] All tasks ticked, Verification log filled in, Status `Done`
+- [x] All tasks ticked, Verification log filled in, Status `Done`
 
 ## Verification log
 
@@ -293,9 +301,95 @@ Known uncovered line: `app.py:250`, the warning for a selection above five. In b
 always returns its default, so the branch cannot be reached from `render_compare`; the logic behind
 it is covered through `limit_to_readable`.
 
+### 2026-09-19 · M3 full gate, live smoke test, docs
+
+Full gate in `services/dashboard/.venv`, integration tests included (real TimescaleDB container,
+not a mock):
+
+```
+$ ruff check .            → All checks passed!
+$ ruff format --check .   → 16 files already formatted
+$ mypy src                → Success: no issues found in 7 source files
+$ pytest --cov=finstream_dashboard --cov-fail-under=85 -q
+97 passed in 7.76s
+src/finstream_dashboard/app.py         197     15     50      6    91%
+src/finstream_dashboard/charts.py       74      4     10      2    93%
+src/finstream_dashboard/comparison.py   74      0     14      0   100%
+src/finstream_dashboard/queries.py      29      1      0      0    97%
+TOTAL                                  419     20     76      8    94%
+Required test coverage of 85% reached. Total coverage: 94.34%
+```
+
+The Ingestor's gate was not re-run: this change does not touch `services/ingestor`, and CI covers
+it on push.
+
+Stack smoke test, `docker compose up -d --build dashboard` against a database the Ingestor has been
+filling for two days:
+
+```
+finstream-dashboard-1   Up (healthy)
+GET /_stcore/health -> 200
+GET /                -> 200
+```
+
+**The live gold-versus-silver reading**, computed inside the container over the full stored span:
+
+```
+stored coverage
+  GC=F     10 bars  2026-09-04 .. 2026-09-18
+  SI=F     10 bars  2026-09-04 .. 2026-09-18
+
+common baseline: 2026-09-04 04:00:00+00:00
+  Gold futures     baseline   4476.60  last   4415.90  -1.36%
+  Silver futures   baseline     66.05  last     66.79  +1.12%
+leader: Silver futures at +1.12%
+
+gold/silver ratio: 10 points  first 67.78  current 66.12  low 65.65  high 68.56
+reading: falling -> silver gaining
+```
+
+So over the window the database actually holds, silver was the better thing to have held: it is up
+1.12% while gold is down 1.36%, and the ratio fell from 67.78 to 66.12. That is the question the
+tab was built to answer, answered from stored bars.
+
+Five instruments on hourly bars, exercising the cap and mixed asset classes:
+
+```
+five instruments, 1h bars — baseline 2026-09-12 00:00:00+00:00
+  Bitcoin                        +5.25%    167 bars
+  Silver futures                 +3.45%    132 bars
+  Gold futures                   +0.86%    132 bars
+  S&P 500                        +0.59%     49 bars
+  WTI crude oil                  -6.78%    132 bars
+chart layers: ['rule', 'line', 'circle'] | rows plotted: 612
+```
+
+**The disjoint-calendar case is real, not hypothetical.** `BTC-USD` and `^GSPC` share **zero**
+hourly timestamps (167 and 49 bars): crypto bars sit on the hour, index bars follow the 13:30 UTC
+open. The percentage chart draws both correctly because it never needs them aligned; the ratio
+panel is the part that has to say it cannot form a ratio, which is exactly what it does.
+
+Golden-rules review of `git diff 9efd54e..HEAD`:
+
+| Rule | Finding |
+|---|---|
+| GR-1 | No transformation is stored. Percentages and the ratio exist only in the rendered page; `services/ingestor` is untouched and the diff adds no SQL |
+| GR-2, GR-3, GR-6 | n/a — no writes, no jobs, no schema change |
+| GR-4 | No new variables; `MAX_COMPARE_SYMBOLS` is a UI cap beside `DEFAULT_WINDOW_DAYS`, not deployment configuration |
+| GR-5 | No `.env` was read or written; the live check ran inside the container off its own environment and never printed `DATABASE_URL` |
+| GR-7 | 47 new tests, network blocked by the `no_network` fixture, existing TimescaleDB integration tests still green |
+| GR-8 | No new dependency |
+| GR-9 | Altair 6.3.0 and the `alt.datum` rule API were checked by running them, not recalled; every number above is real output |
+| GR-10 | Three out-of-scope findings recorded above instead of being fixed here |
+| GR-11 | `README.md`, `docs/architecture.md` and `docs/README.md` updated in this change |
+| GR-12 | Three Conventional Commits, one per milestone; no hook bypassed |
+
+PASS.
+
 ## Change log
 
 - 2026-09-19: created
 - 2026-09-19: approved by the maintainer; started M1
 - 2026-09-19: M1 done — comparison maths and 18 unit tests
 - 2026-09-19: M2 done — Compare tab, percentage and ratio charts
+- 2026-09-19: M3 done — full gate, live smoke test, docs; plan closed

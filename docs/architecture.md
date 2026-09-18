@@ -10,9 +10,15 @@ FinStream is a set of small, single-purpose services around one PostgreSQL + Tim
 |---|---|---|---|
 | Ingest (raw) | `raw` | FinStream Ingestor | Land source data as received: typed, UTC, deduplicated by natural key |
 | Process | `staging`, `core` *(future)* | Processing services *(future)* | Cleaning, trading calendars, adjustments, resampling, aggregations, indicators |
-| Serve | reads `raw` for now | **FinStream Dashboard** (`services/dashboard`) | Streamlit UI: prices, coverage, ingestion health. Read-only ([ADR-0005](adr/0005-serving-reads-raw-directly.md)) |
+| Serve | reads `raw` for now | **FinStream Dashboard** (`services/dashboard`) | Streamlit UI: prices, instrument comparison, coverage, ingestion health. Read-only ([ADR-0005](adr/0005-serving-reads-raw-directly.md)) |
 
 A layer only **reads** from the layer before it. The `raw` schema is the contract between the Ingestor and everything downstream, so changes to it follow GR-6 ([data-model.md](data-model.md)).
+
+The serving layer may compute **for display** — a percentage change, a ratio between two
+instruments — as long as the result never leaves the page. That is not a GR-1 transformation: GR-1
+constrains what the Ingestor writes, and the dashboard writes nothing ([ADR-0005](adr/0005-serving-reads-raw-directly.md)).
+Anything that has to be stored, shared between services or agreed on belongs in the processing
+layer instead.
 
 ```mermaid
 flowchart LR
@@ -147,7 +153,7 @@ All values are configured through the environment, see [configuration.md](config
 - **Compose** (repo root) runs three services:
   - `db`: TimescaleDB image with a pinned tag, a named volume, and a `pg_isready` healthcheck.
   - `ingestor`: built from `services/ingestor`, with `env_file: .env`, `depends_on: db (service_healthy)`, `restart: unless-stopped` and `init: true`. Runs as a non-root user, with a `HEALTHCHECK` that reads the scheduler's heartbeat file.
-  - `dashboard`: built from `services/dashboard`, read-only Streamlit UI published on `127.0.0.1:${DASHBOARD_PORT}` ([ADR-0005](adr/0005-serving-reads-raw-directly.md)).
+  - `dashboard`: built from `services/dashboard`, read-only Streamlit UI published on `127.0.0.1:${DASHBOARD_PORT}` ([ADR-0005](adr/0005-serving-reads-raw-directly.md)). Four tabs: **Prices** (one instrument), **Compare** (2–5 instruments rebased to percentage change from their first common bar, plus a ratio panel for exactly two), **Coverage** and **Ingestion health**.
 - **Network exposure:** the DB port is published on `127.0.0.1` only.
 - **Configuration:** the image contains no secrets. All configuration arrives through the environment at runtime.
 
