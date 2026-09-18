@@ -141,7 +141,7 @@ with its tests and doc updates.
 - [x] **M1: Comparison maths** — `comparison.py` (`common_start`, `baseline_close`, `compare`,
       `ratio_series`), with unit tests for the baseline choice, rebasing, NaN handling, disjoint
       timestamps and the empty cases. No UI yet.
-- [ ] **M2: Charts and tab** — `percent_change_chart()` and `ratio_chart()` in `charts.py`,
+- [x] **M2: Charts and tab** — `percent_change_chart()` and `ratio_chart()` in `charts.py`,
       `render_compare()` and the fourth tab in `app.py`, with chart-spec and render-guard tests.
 - [ ] **M3: Verify and document** — full gates, `docker compose up` smoke test against live data
       with a real gold-vs-silver reading, README and `docs/architecture.md` updated, plan closed.
@@ -238,8 +238,64 @@ Two findings from writing the tests, both now covered:
 One test initially failed on `(76 / 80 - 1) * 100 == -5.000000000000004`; the assertion was
 tightened to `pytest.approx`, the arithmetic was not changed.
 
+### 2026-09-19 · M2 charts and the Compare tab
+
+`charts.percent_change_chart` / `charts.ratio_chart` and `app.render_compare` / `app.render_ratio`,
+behind a fourth tab. Every Compare widget carries an explicit `key=`: the tab reuses the "Interval"
+and "Date range" labels the Prices tab already has, and without distinct keys Streamlit would raise
+a duplicate-widget error the moment both tabs render in one run.
+
+Gates:
+
+```
+$ ruff check .
+All checks passed!
+$ mypy src
+Success: no issues found in 7 source files
+$ pytest -m "not integration" --cov=finstream_dashboard --cov-report=term-missing -q
+91 passed, 6 deselected in 3.85s
+src/finstream_dashboard/app.py         197     15     50      6    91%
+src/finstream_dashboard/charts.py       74      4     10      2    93%
+src/finstream_dashboard/comparison.py   74      0     14      0   100%
+TOTAL                                  419     28     76      8    93%
+```
+
+PASS. 29 new tests across `test_charts.py` and `test_app.py`.
+
+End-to-end shape check on gold vs silver, silver starting a day later with a trailing NaN bar:
+
+```
+common baseline: 2026-09-02 00:00:00+00:00
+  GC=F: baseline  4420.00  last  4493.00  +1.65%
+  SI=F: baseline    52.00  last    55.10  +5.96%
+leader: SI=F
+ratio rows: 4 | current: 81.31
+y domain: [-1.31, 6.31]
+```
+
+Gold's 09-01 bar is kept and sits at -0.45%, which is why the domain starts below zero — the
+baseline moved to the first shared bar without throwing the earlier bar away. The NaN bar keeps
+silver out of the last ratio point (4 rows, not 5).
+
+Three corrections made while testing, all in tests or structure rather than in the maths:
+
+- **A chart test asserted one Vega param; there are two.** `.interactive()` contributes its own
+  interval param for pan and zoom alongside the hover selection, so the assertion now counts point
+  selections only.
+- **The `>5 instruments` render test could not work.** The picker is `left.multiselect` on a column
+  object, not `st.multiselect`, so patching the module attribute changed nothing. The cap moved
+  into a pure `limit_to_readable()` that is tested directly and also reports which instruments were
+  left out, instead of dropping them silently.
+- **An unreachable branch in `render_compare`.** After the "nothing comparable" guard, the leader
+  and the baseline can never be `None`, so the two checks were folded into that one guard.
+
+Known uncovered line: `app.py:250`, the warning for a selection above five. In bare mode the picker
+always returns its default, so the branch cannot be reached from `render_compare`; the logic behind
+it is covered through `limit_to_readable`.
+
 ## Change log
 
 - 2026-09-19: created
 - 2026-09-19: approved by the maintainer; started M1
 - 2026-09-19: M1 done — comparison maths and 18 unit tests
+- 2026-09-19: M2 done — Compare tab, percentage and ratio charts

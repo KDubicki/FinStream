@@ -15,7 +15,7 @@ import pandas as pd
 import streamlit as st
 from sqlalchemy.engine import Engine
 
-from finstream_dashboard import charts, instruments, queries
+from finstream_dashboard import charts, comparison, instruments, queries
 from finstream_dashboard.config import Settings
 
 #: Streamlit needs the cache TTL at decoration time. Reading the environment directly keeps
@@ -23,6 +23,8 @@ from finstream_dashboard.config import Settings
 CACHE_TTL_SECONDS = int(os.environ.get("DASHBOARD_CACHE_TTL_SECONDS", "60"))
 
 PAGE_TITLE = "FinStream"
+#: Opening pair on the Compare tab: the gold-versus-silver question this tab was built for.
+DEFAULT_COMPARE_SYMBOLS = ("GC=F", "SI=F")
 EMPTY_DATABASE_HINT = (
     "No bars stored yet. The Ingestor writes to `raw.market_prices` on its schedule; "
     "start it with `docker compose up -d ingestor` and check its logs if this stays empty."
@@ -154,6 +156,182 @@ def render_prices(coverage: pd.DataFrame, settings: Settings) -> None:
         st.dataframe(load_latest_bars(symbol, bar_interval), width="stretch")
 
 
+def union_span(
+    coverage: pd.DataFrame, symbols: list[str], bar_interval: str
+) -> tuple[object, object]:
+    """The widest span across several series, so the date range covers everything selected."""
+    rows = coverage[coverage["symbol"].isin(symbols) & (coverage["bar_interval"] == bar_interval)]
+    if rows.empty:
+        return None, None
+    return rows["first_ts"].min(), rows["last_ts"].max()
+
+
+def default_compare_selection(symbols: list[str]) -> list[str]:
+    """Open on gold vs silver when both are collected; otherwise just the first two instruments."""
+    preset = [symbol for symbol in DEFAULT_COMPARE_SYMBOLS if symbol in symbols]
+    if len(preset) == comparison.MIN_COMPARE_SYMBOLS:
+        return preset
+    return symbols[: comparison.MIN_COMPARE_SYMBOLS]
+
+
+def limit_to_readable(symbols: list[str]) -> tuple[list[str], list[str]]:
+    """Split a selection into the lines that fit on one axis and the extras that do not."""
+    cap = comparison.MAX_COMPARE_SYMBOLS
+    return symbols[:cap], symbols[cap:]
+
+
+def render_ratio(frames: dict[str, pd.DataFrame], symbols: list[str]) -> None:
+    """One instrument priced in the other: the direct answer to "which of the two to hold"."""
+    numerator, denominator = symbols
+    top = instruments.describe(numerator).name
+    bottom = instruments.describe(denominator).name
+    st.subheader(f"{top} / {bottom} ratio")
+
+    ratio = comparison.ratio_series(frames[numerator], frames[denominator])
+    if ratio.empty:
+        st.info(
+            f"{top} and {bottom} have no bars at the same timestamps in this range, so a ratio "
+            "cannot be formed. Try the other interval, or two instruments with the same "
+            "trading calendar."
+        )
+        return
+
+    values = ratio["ratio"]
+    first, current = float(values.iloc[0]), float(values.iloc[-1])
+    tiles = st.columns(3)
+    tiles[0].metric(
+        "Current", f"{current:,.3f}", f"{(current - first):+,.3f} over the range", delta_color="off"
+    )
+    tiles[1].metric("Range low", f"{float(values.min()):,.3f}")
+    tiles[2].metric("Range high", f"{float(values.max()):,.3f}")
+
+    if current > first:
+        st.caption(f"Rising: {top} has been gaining on {bottom}.")
+    elif current < first:
+        st.caption(f"Falling: {bottom} has been gaining on {top}.")
+    else:
+        st.caption(f"Flat: {top} and {bottom} ended the range where they started.")
+
+    st.altair_chart(charts.ratio_chart(ratio), use_container_width=True)
+
+
+def render_compare(coverage: pd.DataFrame, settings: Settings) -> None:
+    """Several instruments on one percentage scale, rebased to their first common bar."""
+    st.caption(
+        "Percentage change from the first bar the selected instruments have in common. This is "
+        "past movement of stored bars, each in its own quote currency: no FX adjustment is made."
+    )
+
+    symbols = instruments.ordered_symbols(coverage["symbol"].unique())
+    intervals = sorted(coverage["bar_interval"].unique())
+    default_interval = (
+        intervals.index(settings.dashboard_default_interval)
+        if settings.dashboard_default_interval in intervals
+        else 0
+    )
+
+    left, middle = st.columns([3, 1])
+    selected_symbols = left.multiselect(
+        "Instruments",
+        symbols,
+        default=default_compare_selection(symbols),
+        format_func=instruments.label,
+        key="compare_symbols",
+    )
+    bar_interval = middle.selectbox(
+        "Interval", intervals, index=default_interval, key="compare_interval"
+    )
+
+    if len(selected_symbols) < comparison.MIN_COMPARE_SYMBOLS:
+        st.info(f"Pick at least {comparison.MIN_COMPARE_SYMBOLS} instruments to compare.")
+        return
+    selected_symbols, too_many = limit_to_readable(selected_symbols)
+    if too_many:
+        st.warning(
+            f"Comparing the first {comparison.MAX_COMPARE_SYMBOLS}; more lines than that on one "
+            "axis stop being readable. Left out "
+            + ", ".join(instruments.label(symbol) for symbol in too_many)
+            + "."
+        )
+
+    first_ts, last_ts = union_span(coverage, selected_symbols, bar_interval)
+    window_start, window_end = charts.default_date_range(first_ts, last_ts)
+    selected = st.date_input(
+        "Date range",
+        value=(window_start, window_end),
+        min_value=charts.as_date(first_ts),
+        max_value=window_end,
+        key="compare_range",
+    )
+    if not isinstance(selected, tuple | list) or len(selected) != 2:
+        st.info("Pick an end date to show the range.")
+        return
+    start, end = selected
+
+    loaded = {
+        symbol: load_prices(
+            symbol, bar_interval, start, end + timedelta(days=1), settings.dashboard_max_rows
+        )
+        for symbol in selected_symbols
+    }
+    frames = {symbol: frame for symbol, frame in loaded.items() if not frame.empty}
+    empty = [symbol for symbol in loaded if symbol not in frames]
+    if empty:
+        st.warning(
+            f"No {bar_interval} bars in this range for "
+            + ", ".join(instruments.label(symbol) for symbol in empty)
+            + "."
+        )
+    if len(frames) < comparison.MIN_COMPARE_SYMBOLS:
+        st.info("Not enough instruments with data in this range to compare.")
+        return
+    if any(len(frame) >= settings.dashboard_max_rows for frame in frames.values()):
+        st.warning(
+            f"At least one series hit the {settings.dashboard_max_rows}-bar limit; "
+            "narrow the date range to compare the full window."
+        )
+
+    result = comparison.compare(frames)
+    if result.dropped:
+        st.warning(
+            "Left out "
+            + ", ".join(instruments.label(symbol) for symbol in result.dropped)
+            + ": no usable close from the common baseline onwards."
+        )
+    leader = result.leader
+    if result.frame.empty or leader is None or result.start is None:
+        st.info("Nothing comparable in this range.")
+        return
+
+    tiles = st.columns(len(result.summaries))
+    for tile, summary in zip(tiles, result.summaries, strict=True):
+        tile.metric(
+            instruments.describe(summary.symbol).name,
+            f"{summary.last_close:,.2f}",
+            f"{summary.percent_change:+.2f}%",
+        )
+
+    baseline_at = pd.Timestamp(result.start).strftime("%Y-%m-%d %H:%M")
+    st.markdown(
+        f"**{instruments.describe(leader.symbol).name}** leads this window at "
+        f"{leader.percent_change:+.2f}%, measured from the first bar all "
+        f"{len(result.summaries)} instruments share ({baseline_at} UTC)."
+    )
+
+    st.altair_chart(
+        charts.percent_change_chart(
+            result.frame,
+            labels={symbol: instruments.label(symbol) for symbol in frames},
+            title=f"% change · {bar_interval}",
+        ),
+        use_container_width=True,
+    )
+
+    compared = [summary.symbol for summary in result.summaries]
+    if len(compared) == comparison.MIN_COMPARE_SYMBOLS:
+        render_ratio(frames, compared)
+
+
 def render_coverage(coverage: pd.DataFrame) -> None:
     st.caption("What the database holds. A `last_ts` far behind now means ingestion is behind.")
     table = coverage.copy()
@@ -195,9 +373,13 @@ def main() -> None:
         render_health()
         return
 
-    prices_tab, coverage_tab, health_tab = st.tabs(["Prices", "Coverage", "Ingestion health"])
+    prices_tab, compare_tab, coverage_tab, health_tab = st.tabs(
+        ["Prices", "Compare", "Coverage", "Ingestion health"]
+    )
     with prices_tab:
         render_prices(coverage, settings)
+    with compare_tab:
+        render_compare(coverage, settings)
     with coverage_tab:
         render_coverage(coverage)
     with health_tab:

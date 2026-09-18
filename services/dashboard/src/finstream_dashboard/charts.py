@@ -6,6 +6,7 @@ baseline is a flat line: the axis has to follow the data, not the origin.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date, timedelta
 
 import altair as alt
@@ -129,5 +130,96 @@ def volume_chart(frame: pd.DataFrame) -> alt.Chart:
             ],
         )
         .properties(height=110)
+    )
+    return chart
+
+
+def percent_domain(frame: pd.DataFrame) -> list[float]:
+    """A y-axis domain for percentage changes that always contains the 0% baseline.
+
+    Unlike `price_domain`, zero is meaningful here: it is the line every series starts from, so
+    cropping it out would hide the very thing the chart is for.
+    """
+    values = frame["percent"].dropna() if "percent" in frame else pd.Series(dtype="float64")
+    if values.empty:
+        return [-1.0, 1.0]
+    low, high = min(0.0, float(values.min())), max(0.0, float(values.max()))
+    padding = (high - low) * PRICE_PADDING or 1.0
+    return [low - padding, high + padding]
+
+
+def percent_change_chart(
+    frame: pd.DataFrame, *, labels: Mapping[str, str], title: str
+) -> alt.LayerChart:
+    """Several instruments as percentage change from their shared baseline.
+
+    `frame` is the long-form frame from `comparison.compare`. `labels` maps a symbol to what the
+    legend should call it, so this module stays free of display metadata.
+    """
+    data = frame.copy()
+    data["instrument"] = [labels.get(str(symbol), str(symbol)) for symbol in data["symbol"]]
+    hovered = alt.selection_point(on="pointerover", empty=False)
+
+    base = alt.Chart(data).encode(
+        x=alt.X("ts:T", axis=alt.Axis(title=None, labelOverlap=True, format="%d %b %H:%M")),
+        y=alt.Y(
+            "percent:Q",
+            title="% change",
+            scale=alt.Scale(zero=False, domain=percent_domain(frame), nice=False),
+            axis=alt.Axis(format="+.1f"),
+        ),
+        color=alt.Color("instrument:N", title=None, legend=alt.Legend(orient="top-left")),
+    )
+    baseline = alt.Chart(data).mark_rule(strokeDash=[4, 4], opacity=0.6).encode(y=alt.datum(0))
+    line = base.mark_line(strokeWidth=1.8)
+    hover = (
+        base.mark_circle(size=55)
+        .encode(
+            opacity=alt.condition(hovered, alt.value(1), alt.value(0)),
+            tooltip=[
+                alt.Tooltip("ts:T", title="Time (UTC)", format="%Y-%m-%d %H:%M"),
+                alt.Tooltip("instrument:N", title="Instrument"),
+                alt.Tooltip("percent:Q", title="Change", format="+.2f"),
+                alt.Tooltip("close:Q", title="Close", format=",.2f"),
+            ],
+        )
+        .add_params(hovered)
+    )
+    chart: alt.LayerChart = (
+        (baseline + line + hover).properties(height=340, title=title).interactive(bind_y=False)
+    )
+    return chart
+
+
+def ratio_chart(frame: pd.DataFrame, *, title: str | None = None) -> alt.LayerChart:
+    """One instrument priced in another over time, e.g. the gold/silver ratio.
+
+    There is no natural baseline for a ratio, so the axis follows the data as prices do.
+    """
+    hovered = alt.selection_point(on="pointerover", empty=False)
+    base = alt.Chart(frame).encode(
+        x=alt.X("ts:T", axis=alt.Axis(title=None, labelOverlap=True, format="%d %b %H:%M")),
+        y=alt.Y(
+            "ratio:Q",
+            title=None,
+            scale=alt.Scale(zero=False, domain=price_domain(frame, ["ratio"]), nice=False),
+            axis=alt.Axis(format=",.2f"),
+        ),
+    )
+    line = base.mark_line(strokeWidth=1.8)
+    hover = (
+        base.mark_circle(size=55)
+        .encode(
+            opacity=alt.condition(hovered, alt.value(1), alt.value(0)),
+            tooltip=[
+                alt.Tooltip("ts:T", title="Time (UTC)", format="%Y-%m-%d %H:%M"),
+                alt.Tooltip("ratio:Q", title="Ratio", format=",.3f"),
+            ],
+        )
+        .add_params(hovered)
+    )
+    panel = (line + hover).properties(height=160)
+    chart: alt.LayerChart = (panel.properties(title=title) if title else panel).interactive(
+        bind_y=False
     )
     return chart

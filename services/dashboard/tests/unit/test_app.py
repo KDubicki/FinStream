@@ -6,12 +6,12 @@ enough to execute the branches that matter here (empty states, guards, warnings)
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
 import pytest
 
-from finstream_dashboard import app
+from finstream_dashboard import app, comparison
 from finstream_dashboard.config import Settings
 
 TS = datetime(2026, 9, 1, tzinfo=UTC)
@@ -157,3 +157,152 @@ def test_cache_ttl_comes_from_the_environment(monkeypatch: pytest.MonkeyPatch) -
     """The TTL is read at import time, so it must not require full Settings."""
     assert isinstance(app.CACHE_TTL_SECONDS, int)
     assert app.CACHE_TTL_SECONDS >= 0
+
+
+def make_compare_coverage(symbols: tuple[str, ...] = ("GC=F", "SI=F")) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "symbol": list(symbols),
+            "bar_interval": ["1d"] * len(symbols),
+            "bars": [5] * len(symbols),
+            "first_ts": [TS] * len(symbols),
+            "last_ts": [TS + timedelta(days=4)] * len(symbols),
+        }
+    )
+
+
+def priced(base: float, rows: int = 5) -> pd.DataFrame:
+    frame = make_prices(rows=rows)
+    frame["close"] = [base + i for i in range(rows)]
+    frame["adj_close"] = frame["close"]
+    return frame
+
+
+@pytest.fixture
+def stub_per_symbol(monkeypatch: pytest.MonkeyPatch):
+    """Give each symbol its own bars, which a comparison needs and `stub_loaders` cannot."""
+
+    def install(frames: dict[str, pd.DataFrame]) -> None:
+        monkeypatch.setattr(
+            app,
+            "load_prices",
+            lambda symbol, *_args, **_kwargs: frames.get(symbol, pd.DataFrame()),
+        )
+
+    return install
+
+
+def test_compare_opens_on_gold_versus_silver() -> None:
+    """The question this tab exists for, so it must not need two clicks to ask."""
+    assert app.default_compare_selection(["SPY", "GC=F", "SI=F", "QQQ"]) == ["GC=F", "SI=F"]
+
+
+def test_compare_falls_back_to_the_first_two_instruments() -> None:
+    assert app.default_compare_selection(["SPY", "QQQ", "TLT"]) == ["SPY", "QQQ"]
+
+
+def test_compare_selection_survives_a_single_instrument() -> None:
+    assert app.default_compare_selection(["SPY"]) == ["SPY"]
+
+
+def test_union_span_covers_every_selected_series() -> None:
+    coverage = pd.DataFrame(
+        {
+            "symbol": ["GC=F", "SI=F"],
+            "bar_interval": ["1d", "1d"],
+            "bars": [5, 3],
+            "first_ts": [TS, TS + timedelta(days=2)],
+            "last_ts": [TS + timedelta(days=4), TS + timedelta(days=9)],
+        }
+    )
+    first, last = app.union_span(coverage, ["GC=F", "SI=F"], "1d")
+    assert (first, last) == (TS, TS + timedelta(days=9))
+
+
+def test_union_span_without_a_matching_series() -> None:
+    assert app.union_span(make_compare_coverage(), ["GC=F"], "1h") == (None, None)
+
+
+def test_compare_view_renders_two_instruments(stub_loaders, stub_per_symbol, settings) -> None:
+    stub_loaders(coverage=make_compare_coverage())
+    stub_per_symbol({"GC=F": priced(4400.0), "SI=F": priced(52.0)})
+    app.render_compare(make_compare_coverage(), settings)
+
+
+def test_compare_view_asks_for_a_second_instrument(stub_loaders, settings) -> None:
+    """One collected symbol cannot be compared with anything."""
+    coverage = make_compare_coverage(("GC=F",))
+    stub_loaders(coverage=coverage)
+    app.render_compare(coverage, settings)
+
+
+def test_compare_view_names_a_symbol_with_no_bars(stub_loaders, stub_per_symbol, settings) -> None:
+    stub_loaders(coverage=make_compare_coverage())
+    stub_per_symbol({"GC=F": priced(4400.0)})  # silver returns nothing for the range
+    app.render_compare(make_compare_coverage(), settings)
+
+
+def test_compare_view_survives_an_all_nan_series(stub_loaders, stub_per_symbol, settings) -> None:
+    dead = priced(52.0)
+    dead["close"] = [None] * len(dead)
+    stub_loaders(coverage=make_compare_coverage())
+    stub_per_symbol({"GC=F": priced(4400.0), "SI=F": dead})
+    app.render_compare(make_compare_coverage(), settings)
+
+
+def test_compare_view_warns_on_the_row_limit(stub_loaders, stub_per_symbol, make_settings) -> None:
+    """A series that fills the per-symbol LIMIT is truncated history, and must say so."""
+    limited = make_settings(dashboard_max_rows=100)
+    stub_loaders(coverage=make_compare_coverage())
+    stub_per_symbol({"GC=F": priced(4400.0, rows=100), "SI=F": priced(52.0, rows=100)})
+    app.render_compare(make_compare_coverage(), limited)
+
+
+def test_six_instruments_are_cut_to_the_readable_five() -> None:
+    """Six lines on one axis stop being readable, so the extras are reported, not silently lost."""
+    symbols = ["GC=F", "SI=F", "CL=F", "SPY", "QQQ", "TLT"]
+    kept, too_many = app.limit_to_readable(symbols)
+    assert kept == symbols[: comparison.MAX_COMPARE_SYMBOLS]
+    assert too_many == ["TLT"]
+
+
+def test_a_selection_within_the_limit_is_untouched() -> None:
+    kept, too_many = app.limit_to_readable(["GC=F", "SI=F"])
+    assert kept == ["GC=F", "SI=F"]
+    assert too_many == []
+
+
+def test_compare_view_waits_for_a_complete_date_range(
+    monkeypatch: pytest.MonkeyPatch, stub_loaders, stub_per_symbol, settings
+) -> None:
+    """Streamlit hands back a single date between the two clicks of a range pick."""
+    monkeypatch.setattr(app.st, "date_input", lambda *_args, **_kwargs: date(2026, 9, 1))
+    stub_loaders(coverage=make_compare_coverage())
+    stub_per_symbol({"GC=F": priced(4400.0), "SI=F": priced(52.0)})
+    app.render_compare(make_compare_coverage(), settings)
+
+
+def test_compare_view_when_nothing_is_comparable(stub_loaders, stub_per_symbol, settings) -> None:
+    """Both series present but unusable: a message, not an empty chart."""
+    dead = priced(52.0)
+    dead["close"] = [None] * len(dead)
+    stub_loaders(coverage=make_compare_coverage())
+    stub_per_symbol({"GC=F": dead.copy(), "SI=F": dead.copy()})
+    app.render_compare(make_compare_coverage(), settings)
+
+
+def test_ratio_panel_renders_for_two_instruments() -> None:
+    app.render_ratio({"GC=F": priced(4400.0), "SI=F": priced(52.0)}, ["GC=F", "SI=F"])
+
+
+def test_ratio_panel_reports_disjoint_series() -> None:
+    """A 24/7 series against an index can share no timestamps at all."""
+    later = priced(52.0)
+    later["ts"] = [ts + timedelta(days=30) for ts in later["ts"]]
+    app.render_ratio({"GC=F": priced(4400.0), "SI=F": later}, ["GC=F", "SI=F"])
+
+
+def test_ratio_panel_reads_a_flat_ratio() -> None:
+    flat = make_prices(rows=3)
+    flat["close"] = [100.0, 100.0, 100.0]
+    app.render_ratio({"A": flat, "B": flat}, ["A", "B"])
