@@ -24,6 +24,9 @@ dist/
 data/
 *.log
 
+# Database dumps: data, not source (scripts/backup_db.sh)
+backups/
+
 # OS / editors
 .DS_Store
 .idea/
