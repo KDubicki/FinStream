@@ -1,0 +1,51 @@
+Broker footprint measurements — evidence for 03-event-driven-platform.md §5
+==========================================================================
+
+Date:    2026-09-18
+Host:    Docker Engine 29.4.0, Docker Desktop VM, 7.75 GiB RAM / 10 CPUs, linux/arm64
+Method:  docker run -d <image> ; sleep 45 (idle, zero traffic) ; docker stats --no-stream
+         All containers and images were removed after measuring.
+Caveat:  single-sample idle measurements on one machine, not a benchmark. They are recorded to
+         separate "invisible" from "heavier than the database", which is the only distinction the
+         stage-3 decision needs. Registry (compressed, amd64) sizes in the note come from the
+         Docker Hub API `full_size` field, not from here.
+
+Idle resident memory and CPU
+----------------------------
+fs-nats MEM=3.77MiB / 7.75GiB CPU=0.10%
+fs-redis MEM=12.22MiB / 7.75GiB CPU=0.47%
+fs-rabbitmq MEM=95.64MiB / 7.75GiB CPU=0.32%
+fs-redpanda MEM=587.2MiB / 7.75GiB CPU=0.49%
+fs-kafka MEM=289.9MiB / 7.75GiB CPU=3.03%
+
+Image size as the local daemon reports it (uncompressed, arm64)
+---------------------------------------------------------------
+[nats:2-alpine] on-disk-uncompressed-bytes=11142909
+[redis:8-alpine] on-disk-uncompressed-bytes=38686841
+[rabbitmq:4-alpine] on-disk-uncompressed-bytes=83565126
+[redpandadata/redpanda:latest] on-disk-uncompressed-bytes=129477192
+[apache/kafka:latest] on-disk-uncompressed-bytes=238604037
+
+rabbitmq:4-alpine on-disk=261MB
+nats:2-alpine on-disk=40.6MB
+redpandadata/redpanda:latest on-disk=531MB
+finstream-ingestor:latest on-disk=601MB
+finstream-dashboard:latest on-disk=890MB
+finstream-ingestor:local on-disk=601MB
+timescale/timescaledb:2.30.0-pg16 on-disk=2.32GB
+redis:8-alpine on-disk=160MB
+apache/kafka:latest on-disk=690MB
+python:3.12-slim on-disk=205MB
+
+Note on the two size figures
+----------------------------
+`on-disk-uncompressed-bytes` (the image manifest's layer sum) and `docker images` SIZE disagree for
+the same tag — e.g. nats:2-alpine reports 11 142 909 bytes (~10.6 MB) as a layer sum and 40.6 MB in
+`docker images`. Both are recorded above rather than picking one; the ranking between brokers is
+identical either way, which is all the note relies on. The precise reason for the divergence on this
+Docker Desktop version was not investigated (UNVERIFIED).
+
+Runtime versions reported by the containers
+-------------------------------------------
+nats-server v2.15.0 · redis 8.10.1 · RabbitMQ 4.3.6 ·
+redpandadata/redpanda:latest (2026-09-17) · apache/kafka:latest (2026-06-24)

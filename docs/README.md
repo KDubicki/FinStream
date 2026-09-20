@@ -10,6 +10,7 @@
 | [adr/](adr/) | Architecture Decision Records ([template](adr/0000-template.md)) |
 | [plans/](plans/) | Implementation plans ([template](plans/TEMPLATE.md)) |
 | [research/](research/) | Research notes ([template](research/TEMPLATE.md)) |
+| [runbooks/](runbooks/) | Operational procedures ([restore](runbooks/restore.md)) |
 
 The rulebook for agents and humans is [AGENTS.md](../AGENTS.md).
 
@@ -33,6 +34,7 @@ The rulebook for agents and humans is [AGENTS.md](../AGENTS.md).
 | [0004](plans/0004-dashboard-readability-and-coverage.md) | Readable charts and broader instrument coverage | Done |
 | [0005](plans/0005-catch-up-missed-runs.md) | Catch up missed ingestion runs | Done |
 | [0006](plans/0006-instrument-comparison.md) | Percentage comparison of instruments on one chart | Done |
+| [0007](plans/0007-backup-staleness-and-docs-truth.md) | Backup and restore, staleness detection, documentation truth | Done |
 
 ## Research notes
 
@@ -42,5 +44,7 @@ The rulebook for agents and humans is [AGENTS.md](../AGENTS.md).
 | [2026-09-16-apscheduler-tenacity.md](research/2026-09-16-apscheduler-tenacity.md) | R2: APScheduler 3.x cron/day-of-week, job defaults, tenacity retryers |
 | [2026-09-16-timescaledb-testcontainers.md](research/2026-09-16-timescaledb-testcontainers.md) | R3: hypertable syntax, unique-constraint rule, integration-test container |
 | [2026-09-16-dependency-pins.md](research/2026-09-16-dependency-pins.md) | R4: exact version pins, image tag, pre-commit revs |
+| [2026-09-18-platform-evolution/](research/2026-09-18-platform-evolution/) | Platform audit: current state, ranked backlog (R1–R33), data sources, event-driven design |
+| [2026-09-20-timescaledb-backup-restore.md](research/2026-09-20-timescaledb-backup-restore.md) | R1: pg_dump/pg_restore for a hypertable, verified round trip |
 
 Keep these tables in sync whenever an ADR, plan or research note is added or changes status (GR-11).

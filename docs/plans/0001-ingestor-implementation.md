@@ -25,7 +25,7 @@ FinStream needs a reliable raw data foundation before any processing service can
 ## Non-goals
 
 - Any transformation or aggregation (GR-1, ADR-0001).
-- Sources other than Yahoo Finance. They're covered by plan 0002, and the `PriceSource` protocol keeps that possible.
+- Sources other than Yahoo Finance. Not yet planned; the `PriceSource` protocol keeps that possible.
 - Alembic, a metrics endpoint, a CI pipeline, and compression/retention policies (see Follow-ups).
 
 ## Deliverables mapping
@@ -308,7 +308,7 @@ Coverage gate: ≥ 85% on `finstream_ingestor`.
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Yahoo (unofficial API) changes or blocks requests; yfinance breaks | High | High | Pin yfinance; error classification + retries; failures visible in `raw.ingestion_runs`; source abstraction for plan 0002 |
+| Yahoo (unofficial API) changes or blocks requests; yfinance breaks | High | High | Pin yfinance; error classification + retries; failures visible in `raw.ingestion_runs`; source abstraction ready for a second source |
 | Rate limiting with many symbols | Medium | Medium | Sequential per-symbol fetches, backoff with jitter, conservative schedules; R1 evaluates batch download |
 | pandas 3.x / yfinance 1.x incompatibilities | Medium | Medium | R1/R4 verify a compatible pair before pinning |
 | Daily-bar timestamp semantics (exchange-local session date → UTC) confuse downstream | Medium | Medium | Documented in data-model.md; R1 verifies actual behaviour |

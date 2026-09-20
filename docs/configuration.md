@@ -6,7 +6,7 @@ All configuration comes from environment variables (GR-4). Locally they're loade
 - **`.env` is never committed and never read or edited by agents** (GR-5). The user creates it: `cp .env.example .env`.
 - **Validation happens at startup** (pydantic-settings). An invalid or missing required value stops the service with an error naming the variable.
 
-> **Status: design.** This takes effect with [plan 0001](plans/0001-ingestor-implementation.md). A new or changed variable must update this file and `.env.example` in the same change.
+> **Status: current.** A new or changed variable must update this file and `.env.example` in the same change (GR-4).
 
 ## Database
 
@@ -89,39 +89,13 @@ The dashboard reuses `DATABASE_URL` and only ever reads ([ADR-0005](adr/0005-ser
 | `LOG_LEVEL` | no | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `LOG_FORMAT` | no | `json` | `json` (default, for containers) or `text` (local debugging) |
 
-## Example `.env.example` (created in plan 0001, M1)
+## The real `.env.example`
 
-```dotenv
-# --- Database ---
-POSTGRES_USER=finstream
-POSTGRES_PASSWORD=change-me
-POSTGRES_DB=finstream
-DATABASE_URL=postgresql+psycopg://finstream:change-me@db:5432/finstream
-TIMESCALEDB_ENABLED=true
+This document describes each variable; [`.env.example`](../.env.example) at the repository root is
+the file you copy. It is deliberately **not** reproduced here — an embedded copy drifted silently
+once already, going stale on `POSTGRES_PORT`, `SCHEDULER_CATCH_UP_MISSED_RUNS` and every
+`DASHBOARD_*` variable while this page still called itself the source of truth.
 
-# --- Source: Yahoo Finance ---
-YAHOO_SYMBOLS=GC=F,GLD,IAU,SPY,QQQ,VOO,^GSPC,^IXIC,^DJI
-
-# --- Schedules ---
-SCHEDULER_TIMEZONE=UTC
-SCHEDULER_MISFIRE_GRACE_SECONDS=300
-INTRADAY_ENABLED=true
-INTRADAY_INTERVAL=1h
-INTRADAY_EVERY_MINUTES=60
-INTRADAY_LOOKBACK=5d
-DAILY_ENABLED=true
-DAILY_CRON=30 22 * * mon-fri
-DAILY_LOOKBACK=10d
-BACKFILL_ON_START=false
-BACKFILL_PERIOD=2y
-
-# --- Retries ---
-RETRY_MAX_ATTEMPTS=5
-RETRY_MAX_WAIT_SECONDS=60
-
-# --- Health & logging ---
-HEARTBEAT_FILE=/tmp/finstream-ingestor.heartbeat
-HEARTBEAT_EVERY_SECONDS=60
-LOG_LEVEL=INFO
-LOG_FORMAT=json
+```bash
+cp .env.example .env    # then edit it; agents never read or write .env (GR-5)
 ```

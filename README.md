@@ -4,7 +4,7 @@
 
 FinStream is a modular data platform for financial market data: gold, ETFs and stock indices. It's built as a set of small, single-purpose microservices around a PostgreSQL + TimescaleDB time-series database.
 
-> **Status:** the Ingestor is complete and containerised, and a read-only Streamlit dashboard shows what it collects.
+> **Status:** the Ingestor is complete and containerised, and a read-only Streamlit dashboard shows what it collects, compares instruments on one percentage scale and flags a stalled collection. The database has a backup script and a tested restore procedure.
 > Short summary: [docs/STATUS.md](docs/STATUS.md).
 
 ## Architecture

@@ -7,7 +7,7 @@ This file is the **canonical source of rules** for every AI agent (Claude Code, 
 - **FinStream** is a microservice data platform for financial market data (gold, ETFs, stock indices).
 - **FinStream Ingestor** (`services/ingestor`, the first service) is a long-running daemon. It **extracts** market data from Yahoo Finance (`yfinance`) and **loads** it, raw, into PostgreSQL + TimescaleDB. It does no transformation; downstream services own that.
 - **Stack:** Python 3.12, APScheduler 3.x, tenacity, SQLAlchemy 2.0 Core, psycopg 3, pydantic-settings, PostgreSQL 16 + TimescaleDB, Docker Compose.
-- **Status:** bootstrap. Docs and methodology are done. Code waits on [plan 0001](docs/plans/0001-ingestor-implementation.md).
+- **Status:** running. The Ingestor and the Dashboard are implemented, containerised and covered by CI; plans 0001–0006 are closed. Current state: [docs/STATUS.md](docs/STATUS.md).
 
 ## 2. Repo map
 
@@ -24,7 +24,11 @@ This file is the **canonical source of rules** for every AI agent (Claude Code, 
 | `docs/adr/` | Architecture Decision Records |
 | `docs/plans/` | Implementation plans, one per change |
 | `docs/research/` | Research notes |
-| `services/ingestor/` | Ingestor service (created by plan 0001) |
+| `services/ingestor/` | Ingestor service: fetches from Yahoo, upserts into `raw` |
+| `services/dashboard/` | Read-only Streamlit dashboard over `raw` ([ADR-0005](docs/adr/0005-serving-reads-raw-directly.md)) |
+| `scripts/` | Operator scripts, e.g. `backup_db.sh` |
+| `docs/runbooks/` | Operational procedures, e.g. [restore](docs/runbooks/restore.md) |
+| `docs/STATUS.md` | Where the project stands right now |
 
 ## 3. Golden rules
 
@@ -61,7 +65,8 @@ Every change goes through five phases, and each phase has a skill with the detai
 
 ## 5. Commands
 
-> These become available once plan 0001 is implemented. Run them from `services/ingestor/` inside its venv unless noted.
+> Run them from a service directory inside its venv unless noted. Both services have the same
+> shape; substitute `finstream_dashboard` and `services/dashboard/` for the dashboard.
 
 ```bash
 # quality
@@ -72,6 +77,8 @@ pytest -m integration                                   # integration: needs Doc
 pytest --cov=finstream_ingestor --cov-fail-under=85     # full suite + coverage gate
 # stack (repo root; the user owns .env)
 docker compose up -d --build && docker compose logs -f ingestor
+# back up the database (repo root); restore: docs/runbooks/restore.md
+./scripts/backup_db.sh
 # all hooks (repo root)
 pre-commit run --all-files
 ```

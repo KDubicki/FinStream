@@ -1,6 +1,6 @@
 # Plan 0007: backup and restore, staleness detection, and documentation that tells the truth
 
-- **Status:** In progress <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
+- **Status:** Done <!-- Draft | Approved | In progress | Done | Abandoned. Only the user sets Approved. -->
 - **Created:** 2026-09-20
 - **Branch:** `feat/0007-backup-staleness-docs-truth`
 - **Related:** [audit note](../research/2026-09-18-platform-evolution/01-current-state-and-backlog.md) (R1, R2, R21, R22, R23), [backup research](../research/2026-09-20-timescaledb-backup-restore.md), [plan 0005](0005-catch-up-missed-runs.md), [ADR-0005](../adr/0005-serving-reads-raw-directly.md)
@@ -124,7 +124,7 @@ hardcoding a second number would drift exactly as the first did.
       entry; a real dump taken and a real restore performed into a scratch database, with output in
       the Verification log
 - [x] **M2: Staleness** — `freshness.py`, banner, Coverage column, health metric, unit tests
-- [ ] **M3: Documentation** — the corrections above, with real numbers from re-run gates
+- [x] **M3: Documentation** — the corrections above, with real numbers from re-run gates
 
 ## Test plan
 
@@ -170,16 +170,26 @@ maintainer can overrule it; if overruled, M3 stops and an ADR is written first.
   upgrade, when `ts_dump.sh`-style CSV export may be the safer route.
 - Six documents hardcode a plan number for work that is not planned yet. M3 removes the numbers;
   the underlying habit is worth a convention.
+- **The audit note links to `docs/research/2026-09-18-platform-evolution/04-roadmap.md`, which does
+  not exist** — five references across three notes. The sequencing argument those notes lean on
+  ("identity before a second source, lineage before events") therefore has no written support.
+  Left untouched: it is someone else's draft and outside this plan (GR-10).
+- The `2026-09-18-platform-evolution/` folder was untracked until this change and is still
+  `Status: Draft, reviewed: pending`. It is committed here because plan 0007 and `STATUS.md` now
+  reference it; whether it should be reviewed and marked Final is the maintainer's call.
+- Shell scripts have no automated test harness. `backup_db.sh`'s failure modes were exercised
+  manually with a stubbed `docker`; the repo's hook test-suite (audit R25) has the same gap.
 
 ## Definition of Done
 
-- [ ] `ruff check`, `ruff format --check`, `mypy src` clean
-- [ ] `pytest` green, coverage ≥ 85% on `src/`
-- [ ] Idempotency and resilience tests exist for new or changed writers/jobs — *n/a: no writer or
-      job changes; the backup script only reads*
-- [ ] `docker compose up` smoke test passed, with a real backup **and a real restore** recorded
-- [ ] `docs/`, README and `.env.example` reflect the change
-- [ ] All tasks ticked, Verification log filled in, Status `Done`
+- [x] `ruff check`, `ruff format --check`, `mypy src` clean in both services
+- [x] `pytest` green, coverage ≥ 85% — ingestor 115 passed / 96%, dashboard 121 passed / 95.28%
+- [x] Idempotency and resilience tests exist for new or changed writers/jobs — *n/a: no writer or
+      job changes; the backup script only reads, and the dashboard never writes*
+- [x] `docker compose up` smoke test passed, with a real backup **and a real restore** recorded
+- [x] `docs/` and README reflect the change; `.env.example` unchanged **by design** (no new
+      variables — the freshness thresholds are UI constants, as in plan 0006)
+- [x] All tasks ticked, Verification log filled in, Status `Done`
 
 ## Verification log
 
@@ -298,9 +308,70 @@ The Sunday false-alarm case is now a named regression test.
 
 PASS.
 
+### 2026-09-20 · M3 documentation, final gates, smoke test
+
+Corrections applied, each one a statement that was false before:
+
+| Where | Was | Now |
+|---|---|---|
+| `AGENTS.md` §1 | "Status: bootstrap … Code waits on plan 0001" | "running … plans 0001–0006 closed" |
+| `AGENTS.md` §2 | Repo map without the dashboard | + `services/dashboard/`, `scripts/`, `docs/runbooks/`, `docs/STATUS.md` |
+| `AGENTS.md` §5 | "become available once plan 0001 is implemented" | commands apply to both services; `backup_db.sh` added |
+| `architecture.md`, `data-model.md`, `configuration.md` | "Status: design" | "Status: current" |
+| `configuration.md` | 24-variable embedded copy of `.env.example` | deleted; points at the real file |
+| `STATUS.md` | "M6 remains" beside "M6 done"; 107 tests / 95.95% | contradiction gone; real counts |
+| 6 locations | "plan 0002" for additional sources | the number removed, not replaced |
+
+`.env.example` really does carry 29 variables against the embedded copy's 24 — `POSTGRES_PORT`,
+`SCHEDULER_CATCH_UP_MISSED_RUNS` and all four `DASHBOARD_*` were missing, and its `YAHOO_SYMBOLS`
+still listed the pre-plan-0004 set of nine.
+
+Final gates:
+
+```
+ingestor   ruff / ruff format --check / mypy src   clean
+           pytest --cov=finstream_ingestor         115 passed, TOTAL 96%
+dashboard  ruff / ruff format --check / mypy src   clean
+           pytest --cov --cov-fail-under=85        121 passed, 95.28%
+repo       pre-commit run --all-files              every hook Passed
+```
+
+Stack smoke test, `docker compose up -d --build`:
+
+```
+SERVICE     STATUS
+dashboard   Up (healthy)      GET /_stcore/health -> 200,  GET / -> 200
+db          Up (healthy)
+ingestor    Up (healthy)
+
+{"message": "job finished", "job": "daily", "symbols": 23, "succeeded": 23,
+ "empty": 0, "failed": 0, "rows_upserted": 41}
+```
+
+23 configured symbols against 25 stored series — which is the same fact M2's staleness flag
+surfaced from the other direction.
+
+Golden-rules review of `git diff main...HEAD`:
+
+| Rule | Finding |
+|---|---|
+| GR-1, GR-2, GR-6 | n/a — no ingestion, writer or schema change; the dashboard still writes nothing |
+| GR-3 | n/a — no job or scheduler change |
+| GR-4 | No new variables. Freshness thresholds are UI constants, as `MAX_COMPARE_SYMBOLS` is; `.env.example` unchanged |
+| GR-5 | The backup script expands the password inside the container; no `.env` was read or written; gitleaks and the `.env` hook pass |
+| GR-7 | 21 new tests; `freshness.py` at 100%; no network |
+| GR-8 | No new dependency |
+| GR-9 | TimescaleDB restore mechanics taken from the extension's own test suite via context7 and then executed; every figure above is real output |
+| GR-10 | Four out-of-scope findings recorded as follow-ups, including a broken link inside the audit note, which was left alone |
+| GR-11 | `AGENTS.md`, `README.md`, `docs/README.md`, `architecture.md`, `data-model.md`, `configuration.md`, `STATUS.md` all updated here |
+| GR-12 | Three Conventional Commits on a `feat/0007-…` branch; no hook bypassed |
+
+PASS.
+
 ## Change log
 
 - 2026-09-20: M1 done — backup script and a restore that was actually performed
+- 2026-09-20: M3 done — documentation corrected, final gates and smoke test green; plan closed
 - 2026-09-20: M2 done — staleness detection; the peer reference changed to the median after live data exposed a weekend false-alarm storm
 - 2026-09-20: created; scope chosen by the maintainer from the audit's recommended trio, approved
   and started in one step, as with plans 0002–0004.

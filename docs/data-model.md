@@ -1,6 +1,6 @@
 # Data model
 
-> **Status: design.** It gets created by [plan 0001](plans/0001-ingestor-implementation.md). The SQL below is normative. The implementation in `schema.py` must produce exactly this. Changes follow GR-6: idempotent, backward compatible, and documented here in the same change.
+> **Status: current.** The schema below is live and normative: `schema.py` must produce exactly this. Changes follow GR-6: idempotent, backward compatible, and documented here in the same change.
 
 ## 1. Conventions
 
@@ -55,7 +55,7 @@ SELECT create_hypertable('raw.market_prices', by_range('ts'),
 
 | Column | Meaning |
 |---|---|
-| `source` | Stable lowercase id of the data source (`yahoo`). Part of the key, so multiple sources can coexist (plan 0002) |
+| `source` | Stable lowercase id of the data source (`yahoo`). Part of the key, so multiple sources can coexist |
 | `symbol` | Symbol exactly as the source uses it. No mapping to a FinStream-wide instrument id (that's downstream) |
 | `bar_interval` | Interval string passed to the source (`1h`, `1d`) |
 | `ts` | Bar start instant in UTC. **Daily bars:** the source labels them with the exchange-local session date, so after UTC conversion `ts` can land at e.g. `04:00Z` or `05:00Z` depending on DST. Derive the trading date downstream using the exchange timezone. Exact behaviour gets verified in plan 0001 R1 |

@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status: design.** The Ingestor described here is implemented by [plan 0001](plans/0001-ingestor-implementation.md). If the implementation diverges, update this document in the same change (GR-11).
+> **Status: current.** Describes what runs today. If the implementation diverges, update this document in the same change (GR-11).
 
 ## 1. Platform overview
 
@@ -24,7 +24,7 @@ layer instead.
 flowchart LR
     subgraph External
         YF[Yahoo Finance]
-        OTHER[Other free APIs<br/><i>future, plan 0002</i>]
+        OTHER[Other free APIs<br/><i>future</i>]
     end
     subgraph FinStream
         ING[FinStream Ingestor]
@@ -144,7 +144,7 @@ All values are configured through the environment, see [configuration.md](config
 | Host suspended, or the process stalls for hours | On wake the missed runs are coalesced into a single run that executes immediately, because ingestion jobs carry no misfire grace (`SCHEDULER_CATCH_UP_MISSED_RUNS`) | The overlapping lookback refetches the gap and idempotent upserts absorb the repeat (GR-2). Observed 2026-09-17: before this, a suspended laptop left data 20 hours stale while every run still reported `success` |
 | Container stopped (SIGTERM) | Scheduler shuts down; an in-flight upsert transaction either commits or rolls back atomically | Re-running after restart is safe (GR-2) |
 | Process hangs | Heartbeat goes stale → `HEALTHCHECK` reports unhealthy | Visible in `docker compose ps`; restart |
-| Yahoo API change / yfinance breaks | Persistent `failed` runs in `raw.ingestion_runs` | Upgrade via research → plan; alternative sources (plan 0002) |
+| Yahoo API change / yfinance breaks | Persistent `failed` runs in `raw.ingestion_runs` | Upgrade via research → plan; alternative sources (not yet planned) |
 
 `raw.ingestion_runs` is the operational record. Operators and downstream services can see exactly which symbol and interval failed, when, and why.
 
@@ -159,7 +159,7 @@ All values are configured through the environment, see [configuration.md](config
 
 ## 4. Future evolution (not planned yet)
 
-- Additional sources behind the `PriceSource` protocol (plan 0002).
+- Additional sources behind the `PriceSource` protocol (not yet planned).
 - CI pipeline (pre-commit, tests, image build).
 - Alembic migrations once the schema needs a non-additive change.
 - Metrics endpoint and alerting on consecutive failed runs; TimescaleDB compression/retention policies.
