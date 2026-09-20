@@ -15,7 +15,7 @@ import pandas as pd
 import streamlit as st
 from sqlalchemy.engine import Engine
 
-from finstream_dashboard import charts, comparison, instruments, queries
+from finstream_dashboard import charts, comparison, freshness, instruments, queries
 from finstream_dashboard.config import Settings
 
 #: Streamlit needs the cache TTL at decoration time. Reading the environment directly keeps
@@ -332,15 +332,57 @@ def render_compare(coverage: pd.DataFrame, settings: Settings) -> None:
         render_ratio(frames, compared)
 
 
+def render_freshness_banner(coverage: pd.DataFrame) -> None:
+    """Say it on the page when collection has stopped, instead of leaving it in the logs.
+
+    Rendered above the tabs so a stall is visible whichever tab is open — the failure this guards
+    against reported `success` on every run while the data silently aged.
+    """
+    now = pd.Timestamp.now(tz="UTC")
+    state = freshness.overall(coverage, now=now)
+    if state.age is None:
+        return
+
+    age = freshness.humanise(state.age)
+    if state.is_stale:
+        st.error(
+            f"The newest bar anywhere is {age} old. Collection appears to have stopped — check "
+            "the Ingestion health tab and the ingestor's logs."
+        )
+        return
+
+    behind = freshness.behind_series(freshness.assess(coverage, now=now))
+    if behind:
+        st.warning(
+            "Collection is running, but these series are behind their peers: "
+            + ", ".join(instruments.label(symbol) for symbol in sorted(set(behind)))
+            + "."
+        )
+
+
 def render_coverage(coverage: pd.DataFrame) -> None:
-    st.caption("What the database holds. A `last_ts` far behind now means ingestion is behind.")
-    table = coverage.copy()
+    st.caption(
+        "What the database holds. `state` compares a series with the freshest series of the same "
+        "interval, so it needs no trading calendar — but it is a heuristic, not a market clock."
+    )
+    table = freshness.assess(coverage, now=pd.Timestamp.now(tz="UTC"))
     table.insert(0, "instrument", [instruments.describe(s).name for s in table["symbol"]])
     table.insert(1, "class", [instruments.describe(s).asset_class for s in table["symbol"]])
+    table["age"] = [freshness.humanise(value) for value in table["age"]]
+    table["behind_by"] = [freshness.humanise(value) for value in table["behind_by"]]
     st.dataframe(table, width="stretch")
 
 
-def render_health() -> None:
+def render_health(coverage: pd.DataFrame | None = None) -> None:
+    if coverage is not None and not coverage.empty:
+        state = freshness.overall(coverage, now=pd.Timestamp.now(tz="UTC"))
+        st.metric(
+            "Newest bar anywhere",
+            freshness.humanise(state.age),
+            "collection stopped" if state.is_stale else None,
+            delta_color="inverse",
+        )
+
     counts = load_run_status_counts()
     if counts.empty:
         st.info("No ingestion runs recorded in the last 24 hours.")
@@ -373,6 +415,8 @@ def main() -> None:
         render_health()
         return
 
+    render_freshness_banner(coverage)
+
     prices_tab, compare_tab, coverage_tab, health_tab = st.tabs(
         ["Prices", "Compare", "Coverage", "Ingestion health"]
     )
@@ -383,7 +427,7 @@ def main() -> None:
     with coverage_tab:
         render_coverage(coverage)
     with health_tab:
-        render_health()
+        render_health(coverage)
 
 
 if __name__ == "__main__":

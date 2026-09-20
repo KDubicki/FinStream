@@ -306,3 +306,46 @@ def test_ratio_panel_reads_a_flat_ratio() -> None:
     flat = make_prices(rows=3)
     flat["close"] = [100.0, 100.0, 100.0]
     app.render_ratio({"A": flat, "B": flat}, ["A", "B"])
+
+
+def fresh_coverage() -> pd.DataFrame:
+    """Coverage whose newest bar is minutes old, so nothing should be flagged."""
+    now = pd.Timestamp.now(tz="UTC")
+    return pd.DataFrame(
+        {
+            "symbol": ["GC=F", "SI=F"],
+            "bar_interval": ["1h", "1h"],
+            "bars": [10, 10],
+            "first_ts": [now - timedelta(days=2)] * 2,
+            "last_ts": [now - timedelta(minutes=20)] * 2,
+        }
+    )
+
+
+def test_freshness_banner_reports_a_stall() -> None:
+    """make_coverage() is anchored in the past, which is exactly a stopped collection."""
+    app.render_freshness_banner(make_coverage())
+
+
+def test_freshness_banner_stays_quiet_on_fresh_data() -> None:
+    app.render_freshness_banner(fresh_coverage())
+
+
+def test_freshness_banner_names_a_series_behind_its_peers() -> None:
+    frame = fresh_coverage()
+    frame.loc[1, "last_ts"] = pd.Timestamp.now(tz="UTC") - timedelta(days=3)
+    app.render_freshness_banner(frame)
+
+
+def test_freshness_banner_with_an_empty_database() -> None:
+    app.render_freshness_banner(pd.DataFrame())
+
+
+def test_coverage_view_shows_freshness(stub_loaders) -> None:
+    stub_loaders(coverage=fresh_coverage())
+    app.render_coverage(fresh_coverage())
+
+
+def test_health_view_shows_the_newest_bar(stub_loaders) -> None:
+    stub_loaders(status_counts=pd.DataFrame({"status": ["success"], "runs": [3]}))
+    app.render_health(fresh_coverage())

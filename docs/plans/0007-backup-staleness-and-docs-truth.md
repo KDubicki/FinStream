@@ -123,7 +123,7 @@ hardcoding a second number would drift exactly as the first did.
 - [x] **M1: Backup and restore** — `scripts/backup_db.sh`, `docs/runbooks/restore.md`, `.gitignore`
       entry; a real dump taken and a real restore performed into a scratch database, with output in
       the Verification log
-- [ ] **M2: Staleness** — `freshness.py`, banner, Coverage column, health metric, unit tests
+- [x] **M2: Staleness** — `freshness.py`, banner, Coverage column, health metric, unit tests
 - [ ] **M3: Documentation** — the corrections above, with real numbers from re-run gates
 
 ## Test plan
@@ -239,7 +239,68 @@ Two things found while doing this:
   restore above reproduced the data exactly. The runbook says so explicitly and tells the operator
   not to reach for `--disable-triggers`.
 
+### 2026-09-20 · M2 staleness detection, and the design the live data broke
+
+`freshness.py` plus a banner above the tabs, a `state` column on Coverage and a "newest bar
+anywhere" metric on Ingestion health.
+
+```
+$ ruff check . && mypy src
+All checks passed!
+Success: no issues found in 8 source files
+$ pytest -m "not integration" --cov=finstream_dashboard -q
+115 passed, 6 deselected
+src/finstream_dashboard/freshness.py    56      0     16      0   100%
+TOTAL                                  493     28    100      8    94%
+```
+
+**The first live run disproved the design.** Measuring each series against the *freshest* series of
+its interval, as this plan originally specified, flagged **25 of 50 series**:
+
+```
+newest bar anywhere: 2026-09-20 19:00 UTC  age 1h 7m  stale=False
+behind their peers: ['CL=F','DX-Y.NYB','EURUSD=X','GC=F','GLD','IAU','IWM','NG=F','QQQ','SI=F',
+                     'SLV','SPY','TLT','USDPLN=X','VOO','^DJI','^FTSE','^GSPC','^IXIC','^RUT',
+                     '^STOXX50E','^TNX','^VIX', …]
+  1h: 25 series | freshest 1h 7m | oldest IAU 4d 0h
+```
+
+Today is a Sunday. The freshest hourly series was Bitcoin, which trades around the clock, so every
+market that was merely *closed for the weekend* measured days behind it. This is exactly the
+trading-calendar problem the peer comparison was supposed to sidestep — the design had simply moved
+it rather than removed it.
+
+**Fix: the median peer instead of the freshest**, with the hourly tolerance widened from 6h to 12h
+(exchanges close at different times; Tokyo can trail New York by most of a day legitimately). The
+median absorbs a 24/7 outlier at one end and a single straggler at the other. Re-run against the
+same live data:
+
+```
+series stored: 50
+newest bar anywhere: age 1h 9m  stale=False
+behind their peers: 2 of 50 -> ['IAU', 'VOO']
+   iShares Gold Trust (IAU, 1h): age 4d 0h, behind median peer by 2d 0h
+   Vanguard S&P 500 ETF (VOO, 1h): age 4d 0h, behind median peer by 2d 0h
+```
+
+**Both are true positives.** IAU and VOO were dropped from `YAHOO_SYMBOLS` in plan 0004, and the
+Ingestor never deletes, so their history remains while collection stopped. Confirmed in the run log:
+
+```
+GLD | last run 2026-09-20 19:55:16 | 24 runs in 24h
+IAU | last run 2026-09-16 22:04:27 |  0 runs in 24h
+SPY | last run 2026-09-20 19:55:17 | 24 runs in 24h
+VOO | last run 2026-09-16 22:04:28 |  0 runs in 24h
+```
+
+So the feature's first real output correctly named the only two series that had genuinely stopped.
+The Sunday false-alarm case is now a named regression test.
+
+PASS.
+
 ## Change log
 
+- 2026-09-20: M1 done — backup script and a restore that was actually performed
+- 2026-09-20: M2 done — staleness detection; the peer reference changed to the median after live data exposed a weekend false-alarm storm
 - 2026-09-20: created; scope chosen by the maintainer from the audit's recommended trio, approved
   and started in one step, as with plans 0002–0004.
