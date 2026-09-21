@@ -1,7 +1,7 @@
 # Runtime dependencies. Exact pins are mandatory (AGENTS.md GR-8).
 # Chosen in docs/research/2026-09-16-dependency-pins.md (R4), checked 2026-09-16.
 APScheduler==3.11.3
-pandas==3.0.5
+pandas==3.0.6
 psycopg[binary]==3.3.5
 pydantic-settings==2.15.0
 python-json-logger==4.2.0
